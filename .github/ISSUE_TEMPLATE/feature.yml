@@ -22,7 +22,7 @@ body:
       label: Acceptance criteria
       description: How we know it's done. Every line must be checkable.
       value: |
-        - [ ] 
+        - [ ]
     validations:
       required: true
   - type: textarea
