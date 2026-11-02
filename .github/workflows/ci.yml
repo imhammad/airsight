@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: CI only needs to read the code
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the older, now pointless run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Run pre-commit hooks
+        run: uvx pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install dependencies exactly as locked
+        run: uv sync --locked
+      - name: Run tests
+        run: uv run pytest
+
+  smoke:
+    name: Compose smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start the stack and wait until every service is healthy
+        run: docker compose up -d --build --wait
+      - name: Call the health endpoint
+        run: curl --fail --silent --show-error localhost:8000/v1/health
+      - name: Show logs
+        if: always()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
