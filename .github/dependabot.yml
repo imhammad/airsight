@@ -23,3 +23,11 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     labels: ["type:chore", "area:infra"]
+
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["type:chore", "area:web"]
