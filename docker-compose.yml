@@ -1,0 +1,46 @@
+name: airsight
+
+services:
+  api:
+    build:
+      context: ./backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      DATABASE_URL: postgresql://airsight:airsight@db:5432/airsight
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: timescale/timescaledb-ha:pg17
+    environment:
+      # Local development only. Production credentials come from secrets (Phase 10).
+      POSTGRES_USER: airsight
+      POSTGRES_PASSWORD: airsight
+      POSTGRES_DB: airsight
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airsight -d airsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
