@@ -59,3 +59,25 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose down -v
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies exactly as locked
+        run: npm ci
+      - name: No known vulnerabilities in production dependencies
+        run: npm audit --omit=dev
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
