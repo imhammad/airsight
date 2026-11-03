@@ -6,6 +6,12 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-03: Test cleanup fails with "database is being accessed by other users"
+- **Symptom:** all tests passed, but the teardown of the test database failed: `DROP DATABASE airsight_test WITH (FORCE)` raised `ObjectInUse`, "There is 1 other session using the database". It happened only sometimes.
+- **Cause:** TimescaleDB starts a background scheduler in every database that has the extension, checking for new databases about once a minute. When that check overlapped the end of a test run, the scheduler connected while the database was being dropped.
+- **Fix:** the test fixture calls `_timescaledb_functions.stop_background_workers()` in the test database before dropping it, and retries the drop up to 5 times. Verified with a deliberately slow test, so the scheduler was connected.
+- **Lesson:** extensions can run their own background processes. Intermittent failures are usually timing, so reproduce the timing, not just the command.
+
 ### 2026-11-02: `npm install` reports 12 moderate vulnerabilities
 
 - **Symptom:** `npm install` in `web/` reported 12 moderate severity vulnerabilities.
