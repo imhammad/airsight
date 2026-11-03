@@ -41,6 +41,8 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - name: Install dependencies exactly as locked
         run: uv sync --locked
+      - name: Start the database
+        run: docker compose -f ../docker-compose.yml up -d --wait db
       - name: Run tests
         run: uv run pytest
 

@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     environment:
-      DATABASE_URL: postgresql://airsight:airsight@db:5432/airsight
+      DATABASE_URL: postgresql+psycopg://airsight:airsight@db:5432/airsight
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
