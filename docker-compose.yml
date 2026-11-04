@@ -38,9 +38,13 @@ services:
     <<: *backend
     # Beat remembers when each job last ran in a small file; /tmp is writable for the app user
     command: ["celery", "-A", "airsight.worker.celery_app", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
-    # The image's healthcheck calls the API, which doesn't run here
+    # Beat is healthy while it can reach Redis, where it puts each scheduled task
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-c", "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
 
   db:
     image: timescale/timescaledb-ha:pg17
