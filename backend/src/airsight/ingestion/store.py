@@ -1,6 +1,7 @@
 """Write client results into the database. Every write is an upsert, so reruns are safe."""
 
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Connection, func, select, text
@@ -229,3 +230,13 @@ def finish_run(
         .where(ingestion_runs.c.id == run_id)
         .values(finished_at=func.now(), status=status, rows_upserted=rows, error=error)
     )
+
+
+def latest_lowcost_times(connection: Connection) -> dict[int, datetime]:
+    """Newest stored hour of every paired low-cost sensor that has readings, by database id."""
+    rows = connection.execute(
+        select(lowcost_readings.c.sensor_id, func.max(lowcost_readings.c.time))
+        .where(lowcost_readings.c.sensor_id.in_(select(sensor_pairs.c.lowcost_sensor_id)))
+        .group_by(lowcost_readings.c.sensor_id)
+    )
+    return {sensor_id: latest for sensor_id, latest in rows}
