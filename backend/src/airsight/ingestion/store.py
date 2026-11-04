@@ -240,3 +240,13 @@ def latest_lowcost_times(connection: Connection) -> dict[int, datetime]:
         .group_by(lowcost_readings.c.sensor_id)
     )
     return {sensor_id: latest for sensor_id, latest in rows}
+
+
+def earliest_lowcost_times(connection: Connection) -> dict[int, datetime]:
+    """Oldest stored hour of every low-cost sensor that has readings, by database id."""
+    rows = connection.execute(
+        select(lowcost_readings.c.sensor_id, func.min(lowcost_readings.c.time)).group_by(
+            lowcost_readings.c.sensor_id
+        )
+    )
+    return {sensor_id: earliest for sensor_id, earliest in rows}

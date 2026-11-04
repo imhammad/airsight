@@ -72,9 +72,17 @@ def backfill(
     report.paired_sensors = len(paired)
     logger.info("%d monitors, %d sensors within 1 km", report.stations, report.paired_sensors)
 
-    # 3. Hourly history for each paired sensor
+    # 3. Hourly history for each paired sensor, only for the hours before its oldest stored
+    #    hour: a longer backfill doesn't pay again for recent hours, and a rerun after a
+    #    failure resumes where it stopped (each sensor is loaded in one transaction)
+    with engine.connect() as connection:
+        oldest = store.earliest_lowcost_times(connection)
     for number, (sensor_index, sensor_id) in enumerate(paired.items(), start=1):
-        rows = steps.load_lowcost(engine, lowcost, sensor_index, sensor_id, start, end)
+        sensor_end = min(end, oldest.get(sensor_id, end))
+        if sensor_end <= start:
+            logger.info("Sensor %d/%d: already loaded", number, len(paired))
+            continue
+        rows = steps.load_lowcost(engine, lowcost, sensor_index, sensor_id, start, sensor_end)
         report.lowcost_rows += rows
         logger.info("Sensor %d/%d: %d hours", number, len(paired), rows)
 

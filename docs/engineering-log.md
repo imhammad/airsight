@@ -6,6 +6,12 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-04: Compose smoke test failed on beat with no health check
+- **Symptom:** `docker compose up --wait` passed on the Mac but failed in CI with "container airsight-beat-1 has no healthcheck configured".
+- **Cause:** beat's health check was disabled (the image's default check calls the API, which beat doesn't run). The Compose version in CI treats a service without a health check as a failure under `--wait`; the newer local version doesn't.
+- **Fix:** beat now has its own check: it is healthy while it can ping Redis, where it puts each scheduled task.
+- **Lesson:** local and CI tool versions differ. Give every long-running service a real health check rather than relying on how one version treats "none".
+
 ### 2026-11-04: Re-running an old step printed the AirNow key again
 - **Symptom:** a 7-day backfill printed full AirNow URLs, API key included, and the output was pasted into the project chat.
 - **Cause:** commands from an earlier step were re-run by mistake. They overwrote `backfill.py` with the version from before the logging fix, so httpx2 logged request URLs again.
