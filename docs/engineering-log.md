@@ -6,6 +6,12 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-04: Re-running an old step printed the AirNow key again
+- **Symptom:** a 7-day backfill printed full AirNow URLs, API key included, and the output was pasted into the project chat.
+- **Cause:** commands from an earlier step were re-run by mistake. They overwrote `backfill.py` with the version from before the logging fix, so httpx2 logged request URLs again.
+- **Fix:** rotated the AirNow key, restored the files with `git restore .`, deleted the stray branch. The Celery worker re-applies the same protection after Celery sets up its own logging, with a test.
+- **Lesson:** a fix that lives in one call site can be undone by old code. Check `git status` before running pasted commands, and treat any key that reaches a chat or log as exposed: rotate it, don't just delete the message.
+
 ### 2026-11-04: Backfill output printed the AirNow API key
 - **Symptom:** the backfill's INFO output included full request URLs, and AirNow's URLs carry the API key.
 - **Cause:** the httpx2 library logs every request URL at INFO level. AirNow only accepts its key as a URL parameter. The client already hid the key in error messages, but not in the library's own logs.
