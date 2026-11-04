@@ -6,6 +6,12 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-04: Backfill output printed the AirNow API key
+- **Symptom:** the backfill's INFO output included full request URLs, and AirNow's URLs carry the API key.
+- **Cause:** the httpx2 library logs every request URL at INFO level. AirNow only accepts its key as a URL parameter. The client already hid the key in error messages, but not in the library's own logs.
+- **Fix:** one shared `configure_logging()` sets the httpx2 and httpcore loggers to WARNING. A test makes a request with logging at INFO and checks the key is absent; with the fix disabled, the test fails.
+- **Lesson:** secrets in URLs leak through every layer that records URLs (logs, proxies, error trackers). Prefer headers, and when an API forces URL keys, test the logs, not only the error messages.
+
 ### 2026-11-03: Test cleanup fails with "database is being accessed by other users"
 - **Symptom:** all tests passed, but the teardown of the test database failed: `DROP DATABASE airsight_test WITH (FORCE)` raised `ObjectInUse`, "There is 1 other session using the database". It happened only sometimes.
 - **Cause:** TimescaleDB starts a background scheduler in every database that has the extension, checking for new databases about once a minute. When that check overlapped the end of a test run, the scheduler connected while the database was being dropped.

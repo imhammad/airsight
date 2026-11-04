@@ -14,6 +14,7 @@ from sqlalchemy import Engine, text
 
 from airsight.core.config import get_settings
 from airsight.core.db import get_engine
+from airsight.core.logging import configure_logging
 from airsight.ingestion import store
 from airsight.ingestion.airnow import AirNowClient, ReferenceReading
 from airsight.ingestion.http_client import create_client
@@ -149,7 +150,7 @@ def main() -> None:
     if not 1 <= args.days <= MAX_DAYS:
         parser.error(f"--days must be between 1 and {MAX_DAYS}")
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    configure_logging()
     settings = get_settings()
     if settings.airnow_key is None or settings.purpleair_key is None:
         raise SystemExit("AIRNOW_KEY and PURPLEAIR_KEY must be set (see .env.example)")
