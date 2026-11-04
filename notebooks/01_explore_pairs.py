@@ -182,3 +182,27 @@ fig.tight_layout()
 fig.savefig(FIGURES / "error_by_humidity.png", dpi=120)
 plt.close(fig)
 print(f"Figures saved to {FIGURES}/")
+
+# %% [markdown]
+# ## 6. Does the error depend on the pollution level and the season?
+# A correction matters most on smoky days. The bands follow the US AQI breakpoints
+# for PM2.5: good (up to 9), moderate (9 to 35.4), and unhealthy for sensitive
+# groups or worse (above 35.4).
+
+# %%
+clean["raw_abs_error"] = (clean.raw - clean.official).abs()
+clean["epa_abs_error"] = (clean.epa - clean.official).abs()
+clean["level"] = pd.cut(
+    clean.official,
+    bins=[-1, 9, 35.4, 1000],
+    labels=["good (<= 9)", "moderate (9-35)", "unhealthy (> 35)"],
+)
+clean["month"] = clean.time.dt.strftime("%Y-%m")
+for column in ("level", "month"):
+    table = clean.groupby(column, observed=True).agg(
+        hours=("time", "size"),
+        official=("official", "mean"),
+        raw_mae=("raw_abs_error", "mean"),
+        epa_mae=("epa_abs_error", "mean"),
+    )
+    print(table.round(2).to_string())
