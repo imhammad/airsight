@@ -108,3 +108,34 @@ def test_running_twice_gives_the_same_row_counts(engine: Engine) -> None:
     run(engine)
 
     assert table_counts(engine) == first
+
+
+class RecordingPurpleAir(FakePurpleAir):
+    def __init__(self) -> None:
+        super().__init__()
+        self.windows: dict[int, tuple[datetime, datetime]] = {}
+
+    def hourly_readings(
+        self, sensor_index: int, start: datetime, end: datetime
+    ) -> list[LowcostReading]:
+        self.windows[sensor_index] = (start, end)
+        return super().hourly_readings(sensor_index, start, end)
+
+
+def test_a_longer_backfill_only_downloads_the_older_missing_hours(engine: Engine) -> None:
+    run(engine)
+    purpleair = RecordingPurpleAir()
+    earlier = START - timedelta(days=2)
+
+    backfill(engine, FakeAirNow(), purpleair, FakeOpenMeteo(), earlier, END)
+
+    assert purpleair.windows[NEAR.sensor_index] == (earlier, START)
+
+
+def test_a_rerun_skips_sensors_that_are_already_loaded(engine: Engine) -> None:
+    run(engine)
+    purpleair = RecordingPurpleAir()
+
+    backfill(engine, FakeAirNow(), purpleair, FakeOpenMeteo(), START, END)
+
+    assert NEAR.sensor_index not in purpleair.windows
