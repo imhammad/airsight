@@ -1,19 +1,20 @@
 # Data exploration: PurpleAir sensors vs official monitors
 
-Issue #33 · 2026-11-04 · Script: `notebooks/01_explore_pairs.py`
+Issues #33 and #35 · updated 2026-11-04 · Script: `notebooks/01_explore_pairs.py`
 
 ## Why this exists
 
-Before building a correction model we need to know what the raw data looks like: how complete it is,
-how many sensors are broken, and how good the existing EPA correction already is. These numbers are
+Before building a correction model we need to know what the data looks like: how complete it is,
+which sensors are broken, and how good the existing EPA correction already is. These numbers are
 the baselines every AirSight model must beat.
 
 ## Data
 
-- 7-day backfill, 2026-10-27 16:00 to 2026-11-03 15:00 UTC (a clean, low-pollution week).
-- 40 PurpleAir sensors within 1 km of 12 AirNow monitors in the San Francisco Bay Area.
-- 6,592 paired sensor-hours. Median sensor coverage 100%; 1 sensor under 75%.
-- 4.1% of hours have no official reading (monitor gaps).
+- 3 months: 2026-08-06 to 2026-11-04 (UTC), loaded by the backfill and kept current by the
+  live job every 3 hours.
+- 41 PurpleAir sensors within 1 km of 12 AirNow monitors in the San Francisco Bay Area.
+- 80,853 paired sensor-hours. Median sensor coverage 100%; 4 sensors under 75%.
+- 5.6% of hours have no official reading to compare against.
 
 Reproduce:
 
@@ -23,64 +24,96 @@ uv run --project backend --group notebooks python notebooks/01_explore_pairs.py
 
 ## Sensor health
 
-| Sensor | Monitor | Problem |
-|---|---|---|
-| 120181 | Concord | Channel A median 4,991.8 µg/m³, channel B always 0 |
-| 162567 | San Jose Jackson St | Channel B up to 5,633.3; 49% of hours disagree, 42% impossible |
-| 195905 | San Jose Jackson St | Channel B median 6,411.9 |
-| 119499 | San Rafael | Channel A about 4,992, channel B 0 |
-| (Knox Ave sensor) | San Jose Knox Ave | Reads 0.1 vs official 6.8, yet passes all filters |
+Each PurpleAir sensor has two laser counters, A and B. We flag an hour when the counters disagree
+(EPA rule: more than 5 µg/m³ AND more than 70% apart), when either reads above 1,000 µg/m³
+(impossible), or when both read exactly zero.
 
-After removing impossible values (> 1,000), stuck zeros, missing channels and A/B disagreement
-(EPA rule: channels differ by more than 5 µg/m³ AND more than 70%),
-**5,055 of 6,592 hours (77%) are trustworthy**.
+| Sensor | Monitor | Problem | Decision |
+|---|---|---|---|
+| 120181 | Concord | A median 4,989.8, B near 0; 61% impossible | Exclude |
+| 162567 | San Jose Jackson St | B up to 5,633; 42% impossible | Exclude |
+| 195905 | San Jose Jackson St | Both counters around 5,000; 100% impossible | Exclude |
+| 119499 | San Rafael | A about 4,992, B 0; 100% impossible | Exclude |
+| 194669 | Oakland West | Both counters spike to about 5,000; 20% impossible | Exclude |
+| 64777 | San Francisco | Rare spikes (A max 1,939) | Keep; flag those hours |
+| 90563 | Vallejo | Rare spikes (max 1,042) | Keep; flag those hours |
+| Knox Ave sensor | San Jose Knox Ave | Reads 0.1 while the monitor reads 8.6; passes every check | Needs a new check (#36) |
+
+**Rule:** a sensor is excluded when more than 10% of its hours are impossible. Otherwise bad
+hours are flagged, not deleted. After all checks, **59,219 of 80,853 hours (73%) are trustworthy**.
 
 ## Raw vs EPA correction
 
 Error = sensor minus official monitor, in µg/m³, on trustworthy hours.
 EPA US-wide correction (Barkjohn et al. 2021): `0.524 * raw - 0.0862 * RH + 5.75`.
 
-| Method | Mean error | MAE | Correlation |
+| Method | Mean error | Mean absolute error | Correlation |
 |---|---|---|---|
-| Raw (average of A and B) | -0.74 | 2.88 | 0.45 |
-| EPA correction | -2.06 | 3.17 | 0.34 |
+| Raw (average of A and B) | +0.53 | 3.65 | 0.34 |
+| EPA correction | -1.57 | 3.21 | 0.35 |
 
-**The EPA correction did worse than raw this week.**
-![raw and EPA vs official](images/exploration/raw_vs_epa.png)
+Over 3 months the EPA correction beats raw overall, but it reads low on average and pushes some
+monitors far below the truth (Berkeley 0.4 vs 6.0 official, Laney 1.5 vs 7.5, Redwood City 1.8
+vs 6.6). Correlation is low for both because most hours sit in a narrow, clean range where
+sensor noise dominates.
 
-### Error by humidity
+![Raw and EPA-corrected readings against the official monitor](images/exploration/raw_vs_epa.png)
 
-| Humidity band | Raw mean error | EPA mean error |
-|---|---|---|
-| Lowest | -0.91 | +0.36 |
-| Low-mid | -0.68 | -1.87 |
-| High-mid | -0.28 | -2.84 |
-| Highest | -1.56 | -6.06 |
+### By pollution level (US AQI bands)
 
-Raw error is roughly flat across humidity. EPA error grows with humidity: at low concentrations the
-`-0.0862 * RH` term subtracts more than the particles contribute, and some monitors end up with
-corrected values near zero or negative (Berkeley -0.6, Redwood City 0.4, Laney 1.0).
-![error by humidity band](images/exploration/error_by_humidity.png)
+| Official PM2.5 | Hours | Raw MAE | EPA MAE |
+|---|---|---|---|
+| Good (up to 9) | 47,745 | 3.23 | **2.51** |
+| Moderate (9 to 35) | 9,679 | **5.48** | 6.38 |
+| Unhealthy for sensitive groups or worse (above 35) | 42 | 43.63 | 35.65 |
+
+EPA helps on clean days and hurts on moderately polluted ones. There were only 42 hours above
+35 µg/m³ and both methods were far off, so we know almost nothing yet about smoky days.
+
+### By humidity
+
+| Sensor humidity | Hours | Raw mean error | EPA mean error |
+|---|---|---|---|
+| Up to 40% | 12,223 | -1.12 | -0.64 |
+| 40 to 60% | 27,765 | +0.54 | -1.33 |
+| 60 to 80% | 13,157 | +2.06 | -1.40 |
+| Above 80% | 6,074 | +0.52 | -4.96 |
+
+Raw readings rise with humidity (particles swell with water), and EPA's single humidity term
+over-corrects in very humid air. A model that learns this relationship should beat both.
+
+![Mean error by humidity band](images/exploration/error_by_humidity.png)
+
+### By month
+
+| Month | Hours | Official mean | Raw MAE | EPA MAE |
+|---|---|---|---|---|
+| 2026-08 | 15,797 | 4.72 | 3.74 | 3.00 |
+| 2026-09 | 19,489 | 6.47 | 3.54 | 3.29 |
+| 2026-10 | 21,665 | 6.44 | 3.71 | 3.26 |
+| 2026-11 (partial) | 2,268 | 5.22 | 3.43 | 3.36 |
+
+Errors are stable month to month, so there is no obvious seasonal drift in this window.
 
 ## Decisions
 
-1. Exclude sensors 120181, 162567, 195905 and 119499 from analysis and training.
-2. Keep the EPA A/B disagreement rule for marking unreliable hours.
-3. Add a "near zero while the monitor is not" check to the data quality checks (#36),
-   prompted by the San Jose Knox Ave sensor.
-4. Keep both raw and EPA as baselines. No method is declared better until we have 3 months of data.
-5. Quality checks will **flag** rows, not delete them, so we can always see what was excluded and why.
+1. Exclude sensors 120181, 162567, 195905, 119499 and 194669 (more than 10% impossible hours).
+2. Keep the EPA A/B disagreement rule; flag bad hours rather than deleting them (#36).
+3. Add a check for sensors that sit near zero while their monitor does not (#36).
+4. **The target for v0.3:** beat the EPA correction's MAE of 3.21 µg/m³ under leave-one-station-out
+   evaluation, without doing worse than raw on moderate days.
+5. Always report results by pollution level, not only overall, so a model can't hide a bad
+   result on polluted days behind many clean ones.
+6. Until we have smoke data, the forecast widens its uncertainty above 35 µg/m³.
 
 ## Limits
 
-- One clean week. Readings stay in a narrow range (about 3 to 9 µg/m³) where noise dominates,
-  which drags correlation down for every method.
-- No smoke or high-pollution events, which is where corrections matter most.
-- Oakland West (1,381 hours) and San Francisco (1,243) have many paired sensors, so they dominate
-  pooled numbers. Leave-one-station-out evaluation (ADR 0001) will control for this.
+- Almost no high-pollution hours (42 above 35 µg/m³). This is the biggest risk for the model.
+- Four monitors (Oakland West, San Francisco, Vallejo, San Rafael) hold most of the paired hours,
+  so pooled numbers lean towards them. Leave-one-station-out evaluation (ADR 0001) controls for this.
+- The sensor's humidity is measured inside its housing and reads lower than outdoor humidity.
 
 ## Next steps
 
-- #34: live ingestion every 3 hours with Celery.
-- #35: full 3-month backfill, then rerun this script and update this doc.
-- #36: data quality flags based on the findings above.
+- #36: turn the checks above into stored data quality flags and a report.
+- Phase 5: train the correction model and compare it with these baselines.
