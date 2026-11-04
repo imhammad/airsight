@@ -7,7 +7,11 @@ import logging
 QUIET_LOGGERS = ("httpx2", "httpcore")
 
 
-def configure_logging(level: int = logging.INFO) -> None:
-    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+def quiet_request_logs() -> None:
     for name in QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def configure_logging(level: int = logging.INFO) -> None:
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    quiet_request_logs()
