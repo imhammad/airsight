@@ -44,3 +44,7 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
 ]
+notebooks = [
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.0",
+]
