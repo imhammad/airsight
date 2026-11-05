@@ -12,10 +12,12 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    FetchedValue,
     ForeignKey,
     Identity,
     Integer,
     MetaData,
+    SmallInteger,
     Table,
     Text,
     UniqueConstraint,
@@ -47,6 +49,8 @@ lowcost_readings = Table(
     Column("pm25_b", REAL),
     Column("humidity", REAL),
     Column("temperature", REAL),
+    # Computed by PostgreSQL (migration 0002); the app never writes it. Bits in quality.Flag.
+    Column("flags", SmallInteger, FetchedValue(), nullable=False),
 )
 
 reference_readings = Table(
@@ -90,4 +94,20 @@ ingestion_runs = Table(
     CheckConstraint(
         "status IN ('running', 'succeeded', 'failed')", name="ingestion_runs_status_check"
     ),
+)
+
+sensor_health = Table(
+    "sensor_health",
+    metadata,
+    Column("sensor_id", BigInteger, ForeignKey("sensors.id"), primary_key=True),
+    Column("checked_at", DateTime(timezone=True), nullable=False),
+    Column("window_start", DateTime(timezone=True), nullable=False),
+    Column("hours", Integer, nullable=False),
+    Column("impossible_share", REAL, nullable=False),
+    Column("disagree_share", REAL, nullable=False),
+    Column("median_pm25", REAL),
+    Column("median_reference", REAL),
+    Column("status", Text, nullable=False),
+    Column("reason", Text),
+    CheckConstraint("status IN ('ok', 'excluded')", name="sensor_health_status_check"),
 )
