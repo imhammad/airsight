@@ -35,6 +35,11 @@ app.conf.update(
             # If the worker was down, drop the old run: the next one catches up anyway
             "options": {"expires": 2 * 60 * 60},
         },
+        "quality-check": {
+            "task": "airsight.check_quality",
+            # Once a day, between live runs
+            "schedule": crontab(minute="45", hour="1"),
+        },
     },
 )
 
