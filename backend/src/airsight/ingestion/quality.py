@@ -38,7 +38,7 @@ MAX_IMPOSSIBLE_SHARE = 0.10
 NEAR_ZERO = 1.0
 REFERENCE_MIN = 3.0
 
-HEALTH_SQL = text("""
+SUMMARY_SQL = """
     WITH nearest AS (
         SELECT DISTINCT ON (lowcost_sensor_id) lowcost_sensor_id, reference_sensor_id
         FROM sensor_pairs
@@ -66,6 +66,17 @@ HEALTH_SQL = text("""
         FROM readings
         GROUP BY sensor_id
     )
+"""
+
+# The exclusion rule, written once and used by the health table and the training dataset
+EXCLUDED_WHEN = """
+    impossible_share > :max_impossible
+    OR (median_pm25 < :near_zero AND median_reference >= :reference_min)
+"""
+
+HEALTH_SQL = text(
+    SUMMARY_SQL
+    + """
     INSERT INTO sensor_health (
         sensor_id, checked_at, window_start, hours, impossible_share, disagree_share,
         median_pm25, median_reference, status, reason
@@ -73,12 +84,9 @@ HEALTH_SQL = text("""
     SELECT
         sensor_id, :end, :start, hours, impossible_share, disagree_share,
         median_pm25, median_reference,
-        CASE
-            WHEN impossible_share > :max_impossible THEN 'excluded'
-            WHEN median_pm25 < :near_zero AND median_reference >= :reference_min
-                THEN 'excluded'
-            ELSE 'ok'
-        END,
+        CASE WHEN """
+    + EXCLUDED_WHEN
+    + """ THEN 'excluded' ELSE 'ok' END,
         CASE
             WHEN impossible_share > :max_impossible THEN
                 'impossible values in ' || round((impossible_share * 100)::numeric)
@@ -87,7 +95,10 @@ HEALTH_SQL = text("""
                 THEN 'reads near zero while its monitor does not'
         END
     FROM summary
-""")
+"""
+)
+
+EXCLUDED_SQL = text(SUMMARY_SQL + "SELECT sensor_id FROM summary WHERE " + EXCLUDED_WHEN)
 
 
 @dataclass(frozen=True)
@@ -101,20 +112,27 @@ class SensorHealth:
     reason: str
 
 
+def _rule_parameters(start: datetime, end: datetime) -> dict[str, object]:
+    return {
+        "start": start,
+        "end": end,
+        "max_impossible": MAX_IMPOSSIBLE_SHARE,
+        "near_zero": NEAR_ZERO,
+        "reference_min": REFERENCE_MIN,
+    }
+
+
 def refresh_sensor_health(connection: Connection, now: datetime) -> int:
     """Recompute sensor_health from the last WINDOW of data. Returns the number excluded."""
     connection.execute(sensor_health.delete())
-    connection.execute(
-        HEALTH_SQL,
-        {
-            "start": now - WINDOW,
-            "end": now,
-            "max_impossible": MAX_IMPOSSIBLE_SHARE,
-            "near_zero": NEAR_ZERO,
-            "reference_min": REFERENCE_MIN,
-        },
-    )
+    connection.execute(HEALTH_SQL, _rule_parameters(now - WINDOW, now))
     return len(excluded_sensors(connection))
+
+
+def excluded_during(connection: Connection, start: datetime, end: datetime) -> set[int]:
+    """Database ids of the sensors the quality rules exclude, judged on [start, end)."""
+    rows = connection.execute(EXCLUDED_SQL, _rule_parameters(start, end))
+    return set(rows.scalars())
 
 
 def excluded_sensors(connection: Connection) -> list[SensorHealth]:
