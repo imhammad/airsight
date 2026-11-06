@@ -23,6 +23,10 @@ RUN uv sync --locked --no-dev --no-editable
 
 # ---------- Stage 2: the small image that actually runs ----------
 FROM python:3.12-slim AS runtime
+# LightGBM needs the OpenMP runtime, which the slim image leaves out
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Never run as root inside a container
 RUN groupadd --system app && useradd --system --gid app --no-create-home app

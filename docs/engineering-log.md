@@ -6,6 +6,18 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-06: Test run left MLflow model files in backend/mlruns
+- **Symptom:** the pre-commit hook `check-added-large-files` blocked the commit: `backend/mlruns/.../model.lgb (670 KB) exceeds 500 KB`.
+- **Cause:** the training test uses a temporary SQLite tracking database, but MLflow stores model files in `./mlruns` relative to the current folder, so pytest wrote them into `backend/`.
+- **Fix:** the test fixture changes into its temp folder (`monkeypatch.chdir(tmp_path)`), and `mlruns/` is git-ignored.
+- **Lesson:** tests must write only to `tmp_path`; check `git status` for new folders after adding a library that writes files.
+
+### 2026-11-06: LightGBM can't load inside the slim Docker image
+- **Symptom:** `import lightgbm` fails in the container with `OSError: libgomp.so.1: cannot open shared object file`.
+- **Cause:** LightGBM uses OpenMP for threads. The Linux wheel expects the system library `libgomp1`, which `python:3.12-slim` doesn't include. On macOS the same library comes from `brew install libomp`.
+- **Fix:** install `libgomp1` with apt in the runtime stage of `backend/Dockerfile`.
+- **Lesson:** a Python wheel can still depend on system libraries; import every heavy dependency inside the built image before relying on it.
+
 ### 2026-11-04: Compose smoke test failed on beat with no health check
 - **Symptom:** `docker compose up --wait` passed on the Mac but failed in CI with "container airsight-beat-1 has no healthcheck configured".
 - **Cause:** beat's health check was disabled (the image's default check calls the API, which beat doesn't run). The Compose version in CI treats a service without a health check as a failure under `--wait`; the newer local version doesn't.

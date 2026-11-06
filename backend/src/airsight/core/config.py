@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://airsight:airsight@localhost:5432/airsight"
     redis_url: str = "redis://localhost:6379/0"
+    # Port 5001 on the host: macOS uses 5000 for AirPlay
+    mlflow_tracking_uri: str = "http://localhost:5001"
 
     purpleair_key: SecretStr | None = None
     airnow_key: SecretStr | None = None
