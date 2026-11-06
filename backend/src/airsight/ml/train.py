@@ -108,12 +108,13 @@ def train(dataset: Path) -> str:
         )
         final_model = LightGbmModel()
         final_model.fit(development)
-        mlflow.lightgbm.log_model(
+        logged = mlflow.lightgbm.log_model(
             final_model.booster,
             name="model",
             # Floats in the signature, so a missing weather value at serving time is allowed
             input_example=development[FEATURE_COLUMNS].head(5).astype("float64"),
         )
+        mlflow.set_tag("model_uri", logged.model_uri)  # what the registry promotes
 
     for report in (raw, epa, model):
         print(format_report(report), end="\n\n")
