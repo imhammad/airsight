@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.1.0` (foundations). Follow progress on the
+> **Status:** early development, `v0.3.0` (correction model). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -37,6 +37,22 @@ flowchart LR
     API --> WEB[React web app]
 ```
 
+## Results (v0.3.0)
+
+Accuracy on 14 days the model never saw, with every official monitor scored by a model trained
+without that monitor's data ([ADR 0007](docs/adr/0007-model-evaluation.md)). Mean absolute error in
+µg/m³, averaged over 10 Bay Area monitors:
+
+| | All hours | Moderate pollution (9 to 35.4) |
+|---|---|---|
+| Raw PurpleAir | 2.87 | 4.48 |
+| EPA US-wide correction | 3.42 | 6.18 |
+| **AirSight** | **2.50** | **3.89** |
+
+Better than the EPA correction at 7 of 10 monitors. No claim yet above 35.4 µg/m³: there were no
+smoke days in the data. Details and limitations are in the
+[model card](docs/model-cards/airsight-correction-v1.md).
+
 ## Quickstart
 
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
@@ -64,8 +80,8 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | Release | Scope | Status |
 |---|---|---|
 | v0.1.0 | Foundations: repo, Docker, CI | ✅ |
-| v0.2.0 | Data ingestion from PurpleAir, AirNow, OpenAQ, Open-Meteo | ⏳ |
-| v0.3.0 | Calibration model that beats the EPA correction | ⏳ |
+| v0.2.0 | Data ingestion from PurpleAir, AirNow and Open-Meteo | ✅ |
+| v0.3.0 | Calibration model that beats the EPA correction | ✅ |
 | v0.4.0 | Model serving and public `/v1` API | ⏳ |
 | v0.5.0 | Web app: map, location detail, accuracy page | ⏳ |
 | v0.6.0 | 24-hour forecast with uncertainty | ⏳ |
@@ -75,6 +91,8 @@ docs/        Architecture decisions (ADRs) and the engineering log
 ## Documentation
 
 - [Architecture decisions](docs/adr/)
+- [Data exploration](docs/data-exploration.md): what the data looks like and what is wrong with it
+- [Model card](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
 - [Engineering log](docs/engineering-log.md): every problem hit and how it was solved
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
