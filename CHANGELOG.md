@@ -6,6 +6,31 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-06
+
+Correction model: LightGBM corrects PurpleAir readings with a headline error of 2.50 µg/m³ on
+14 unseen days, against 3.42 for the EPA correction and 2.87 for raw readings.
+
+### Added
+
+- Evaluation decision: leave one station out, a final 14-day test scored once per release,
+  station-averaged MAE as the headline, and ship rules (ADR 0007) (#59).
+- Versioned training dataset in Parquet, named by a hash of its contents, with features shared
+  by training and serving (#60).
+- Evaluation harness with raw and EPA baselines, results per station and per AQI band, and the
+  ship rules in code (#61).
+- MLflow tracking server in Docker Compose and a LightGBM correction model; every run records
+  its dataset, parameters, metrics and model (#62).
+- Model registry: promotion runs the final test and registers the model as
+  `airsight-correction@champion` only if every ship rule passes; skew, signature and
+  golden-feature tests (#63).
+- Model card and results in the README (#64).
+
+### Fixed
+
+- The backend image installs `libgomp1`, which LightGBM needs (#62).
+- Training tests no longer leave MLflow files in `backend/mlruns` (#62).
+
 ## 0.2.0 - 2026-11-05
 
 Data pipeline: three months of paired sensor, monitor and weather data, kept current every
