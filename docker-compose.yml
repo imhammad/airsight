@@ -46,6 +46,29 @@ services:
       start_period: 10s
       retries: 3
 
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.18.0  # same version as the mlflow-skinny client
+    # Runs and metrics in a SQLite file, model files next to it, all in one volume.
+    # The server stores uploaded model files itself, so clients only need its URL.
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=sqlite:////mlflow/mlflow.db
+      - --artifacts-destination=/mlflow/artifacts
+      - --allowed-hosts=localhost:*,127.0.0.1:*,mlflow:*
+    ports:
+      - "127.0.0.1:5001:5000"  # 5000 is taken by AirPlay on macOS
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
   db:
     image: timescale/timescaledb-ha:pg17
     environment:
@@ -75,3 +98,4 @@ services:
 
 volumes:
   db-data:
+  mlflow-data:

@@ -224,3 +224,6 @@ data/
 
 # Generated datasets and models (rebuilt from the database)
 /data/
+
+# MLflow files written outside the tracking server
+mlruns/
