@@ -9,6 +9,7 @@ Run from backend/ with the stack up:  uv run python -m airsight.ml.registry prom
 """
 
 import argparse
+import json
 import logging
 from dataclasses import asdict
 from pathlib import Path
@@ -57,6 +58,9 @@ def promote(run_id: str, datasets_dir: Path = DATASETS_DIR) -> int:
 
     version = mlflow.register_model(run.data.tags["model_uri"], MODEL_NAME)
     client.set_model_version_tag(MODEL_NAME, version.version, "dataset", run.data.tags["dataset"])
+    # The model never saw hours from here on, so live accuracy counts only those (GET /v1/accuracy)
+    trained_before = json.loads(dataset.with_suffix(".json").read_text())["final_test_start"]
+    client.set_model_version_tag(MODEL_NAME, version.version, "trained_before", trained_before)
     client.set_registered_model_alias(MODEL_NAME, CHAMPION, version.version)
     return int(version.version)
 

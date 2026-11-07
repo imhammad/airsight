@@ -188,3 +188,31 @@ def nearest(
             )
         )
     return nearby
+
+
+HISTORY_SQL = text(f"""
+    SELECT c.time, c.pm25, c.model_version, (l.pm25_a + l.pm25_b) / 2 AS raw
+    FROM sensors s
+    LEFT JOIN sensor_health h ON h.sensor_id = s.id
+    JOIN corrected_readings c ON c.sensor_id = s.id
+    LEFT JOIN lowcost_readings l ON l.sensor_id = c.sensor_id AND l.time = c.time
+    WHERE {SERVED}
+      AND COALESCE(h.status, 'ok') <> 'excluded'
+      AND s.source = :source AND s.source_id = :source_id
+      AND c.time >= :start AND c.time < :end
+    ORDER BY c.time
+""")
+
+
+def history(
+    connection: Connection, sensor_id: str, start: datetime, end: datetime, now: datetime
+) -> list[Reading]:
+    """Hourly corrected readings in [start, end), oldest first. Empty for excluded sensors."""
+    parsed = parse_public_id(sensor_id)
+    if parsed is None:
+        return []
+    source, source_id = parsed
+    rows = connection.execute(
+        HISTORY_SQL, {"source": source, "source_id": source_id, "start": start, "end": end}
+    ).mappings()
+    return [reading for row in rows if (reading := _reading(row, now)) is not None]
