@@ -21,6 +21,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    func,
 )
 
 metadata = MetaData()
@@ -110,4 +111,14 @@ sensor_health = Table(
     Column("status", Text, nullable=False),
     Column("reason", Text),
     CheckConstraint("status IN ('ok', 'excluded')", name="sensor_health_status_check"),
+)
+
+corrected_readings = Table(
+    "corrected_readings",
+    metadata,
+    Column("sensor_id", BigInteger, ForeignKey("sensors.id"), primary_key=True),
+    Column("time", DateTime(timezone=True), primary_key=True),
+    Column("pm25", REAL, nullable=False),
+    Column("model_version", Text, nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
