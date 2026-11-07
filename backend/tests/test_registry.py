@@ -73,7 +73,9 @@ def test_passing_model_becomes_champion(local_mlflow: None, tmp_path: Path) -> N
 
     assert version == 1
     client = mlflow.MlflowClient()
-    assert int(client.get_model_version_by_alias(MODEL_NAME, CHAMPION).version) == 1
+    champion = client.get_model_version_by_alias(MODEL_NAME, CHAMPION)
+    assert int(champion.version) == 1
+    assert champion.tags["trained_before"] == (START + timedelta(hours=500)).isoformat()
     run = client.get_run(run_id)
     assert run.data.tags["final_ships"] == "True"
     assert "final.lightgbm.headline_mae" in run.data.metrics

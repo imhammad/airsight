@@ -219,3 +219,59 @@ def test_sensor_list_rejects_bad_paging(client: TestClient) -> None:
 )
 def test_aqi_categories_follow_the_2024_breakpoints(pm25: float, category: str) -> None:
     assert aqi_category(pm25) == category
+
+
+def history(client: TestClient, sensor_id: str, start: str, end: str) -> list[dict[str, object]]:
+    response = client.get(f"/v1/sensors/{sensor_id}/history", params={"start": start, "end": end})
+    assert response.status_code == 200
+    data: list[dict[str, object]] = response.json()["data"]
+    return data
+
+
+def test_history_returns_hourly_readings_oldest_first(client: TestClient) -> None:
+    readings = history(client, "pa-950001", "2026-03-01T06:00:00Z", "2026-03-01T12:00:00Z")
+
+    assert [r["observed_at"] for r in readings] == ["2026-03-01T07:00:00Z", "2026-03-01T11:00:00Z"]
+    assert [r["pm25_corrected"] for r in readings] == [7.4, 8.4]
+
+
+def test_history_includes_start_and_excludes_end(client: TestClient) -> None:
+    readings = history(client, "pa-950001", "2026-03-01T07:00:00Z", "2026-03-01T11:00:00Z")
+
+    assert [r["observed_at"] for r in readings] == ["2026-03-01T07:00:00Z"]
+
+
+def test_history_accepts_other_time_zones(client: TestClient) -> None:
+    # 23:00 in California on 28 February is 07:00 UTC on 1 March
+    readings = history(client, "pa-950001", "2026-02-28T23:00:00-08:00", "2026-03-01T08:00:00Z")
+
+    assert [r["observed_at"] for r in readings] == ["2026-03-01T07:00:00Z"]
+
+
+def test_history_of_an_excluded_sensor_is_empty(client: TestClient) -> None:
+    assert history(client, "pa-950003", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z") == []
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        ("2026-03-01T06:00:00", "2026-03-01T12:00:00Z"),  # no time zone: rejected, not guessed
+        ("2026-03-01T12:00:00Z", "2026-03-01T06:00:00Z"),  # end before start
+        ("2026-03-01T12:00:00Z", "2026-03-01T12:00:00Z"),  # empty range
+        ("2026-01-01T00:00:00Z", "2026-02-02T00:00:00Z"),  # more than 31 days
+        ("yesterday", "2026-03-01T12:00:00Z"),
+    ],
+)
+def test_history_rejects_bad_ranges(client: TestClient, start: str, end: str) -> None:
+    response = client.get("/v1/sensors/pa-950001/history", params={"start": start, "end": end})
+
+    assert response.status_code == 422
+
+
+def test_history_of_an_unknown_sensor_is_404(client: TestClient) -> None:
+    response = client.get(
+        "/v1/sensors/pa-999999999/history",
+        params={"start": "2026-03-01T00:00:00Z", "end": "2026-03-02T00:00:00Z"},
+    )
+
+    assert response.status_code == 404
