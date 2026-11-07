@@ -67,6 +67,17 @@ def load_champion() -> lgb.Booster:
     return booster
 
 
+def load_champion_version() -> tuple[lgb.Booster, str]:
+    """The champion and its name for provenance, such as airsight-correction/1.
+
+    The alias is resolved once and that exact version is loaded, so the name can never belong to
+    a different model than the one returned, even if a promotion happens in between.
+    """
+    version = MlflowClient().get_model_version_by_alias(MODEL_NAME, CHAMPION).version
+    booster: lgb.Booster = mlflow.lightgbm.load_model(f"models:/{MODEL_NAME}/{version}")
+    return booster, f"{MODEL_NAME}/{version}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)

@@ -35,6 +35,12 @@ app.conf.update(
             # If the worker was down, drop the old run: the next one catches up anyway
             "options": {"expires": 2 * 60 * 60},
         },
+        "correct-readings": {
+            "task": "airsight.correct_readings",
+            # 15 minutes after each live ingestion, which normally takes about a minute
+            "schedule": crontab(minute="30", hour="*/3"),
+            "options": {"expires": 2 * 60 * 60},
+        },
         "quality-check": {
             "task": "airsight.check_quality",
             # Once a day, between live runs

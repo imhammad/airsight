@@ -36,7 +36,12 @@ def test_time_series_tables_are_hypertables(engine: Engine) -> None:
             text("SELECT hypertable_name FROM timescaledb_information.hypertables")
         ).scalars()
 
-        assert set(names) == {"lowcost_readings", "reference_readings", "weather"}
+        assert set(names) == {
+            "lowcost_readings",
+            "reference_readings",
+            "weather",
+            "corrected_readings",
+        }
 
 
 def test_writing_the_same_reading_twice_keeps_one_row(engine: Engine) -> None:
