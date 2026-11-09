@@ -1,0 +1,55 @@
+/* Design tokens from ADR 0009. Components use these names, never raw colours. */
+:root {
+  color-scheme: light dark;
+
+  --ground: #f6f5f2;
+  --surface: #ffffff;
+  --line: #e3e1dc;
+  --ink: #1a1c1e;
+  --secondary: #545a61;
+  --accent: #1e5a85;
+  --accent-ink: #ffffff;
+
+  /* Air quality colours stay the same in both themes */
+  --aqi-good: #4e9f5e;
+  --aqi-moderate: #e3bd3e;
+  --aqi-unhealthy-sensitive: #e88b3a;
+  --aqi-unhealthy: #c43f3a;
+  --aqi-very-unhealthy: #7e4e9a;
+  --aqi-hazardous: #6e2433;
+  --aqi-dark-label: #1a1c1e;
+  --aqi-light-label: #ffffff;
+
+  --font-display: "Source Serif 4 Variable", Georgia, serif;
+  --font-ui: "Inter Variable", system-ui, sans-serif;
+
+  --radius: 12px;
+  --radius-large: 16px;
+
+  /* Motion: only to explain a change (ADR 0009) */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 150ms;
+  --duration: 250ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #111315;
+    --surface: #1a1d20;
+    --line: #2a2e32;
+    --ink: #ecedee;
+    --secondary: #a3a9af;
+    --accent: #86b6da;
+    --accent-ink: #111315;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
