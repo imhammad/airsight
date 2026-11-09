@@ -8,6 +8,7 @@ from sqlalchemy import Connection, Engine, text
 from airsight.api.aqi import aqi_category
 from airsight.api.deps import get_connection, get_now
 from airsight.api.main import create_app
+from airsight.api.store import MemoryStore
 from airsight.core.tables import corrected_readings, sensor_health
 from airsight.ingestion import store
 from airsight.ingestion.airnow import ReferenceReading
@@ -75,7 +76,7 @@ def client(engine: Engine) -> Iterator[TestClient]:
         with engine.connect() as connection:
             yield connection
 
-    app = create_app()
+    app = create_app(store=MemoryStore(), rate_limit_per_minute=0)
     app.dependency_overrides[get_connection] = test_connection
     app.dependency_overrides[get_now] = lambda: NOW
     yield TestClient(app)

@@ -7,6 +7,7 @@ import mlflow
 import numpy as np
 import pandas as pd
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, text
 
@@ -14,6 +15,7 @@ from airsight.api import deps
 from airsight.api.deps import get_champion, get_connection, get_now
 from airsight.api.main import create_app
 from airsight.api.schemas import ModelInfo
+from airsight.api.store import MemoryStore
 from airsight.core.config import get_settings
 from airsight.core.tables import corrected_readings
 from airsight.ingestion import store
@@ -82,7 +84,9 @@ def promote_fake_champion() -> str:
 def test_model_describes_the_champion(local_mlflow: None) -> None:
     promote_fake_champion()
 
-    body = TestClient(create_app()).get("/v1/model").json()
+    body = (
+        TestClient(create_app(store=MemoryStore(), rate_limit_per_minute=0)).get("/v1/model").json()
+    )
 
     assert {k: v for k, v in body.items() if k != "promoted_at"} == {
         "name": "airsight-correction",
@@ -103,7 +107,7 @@ def test_model_describes_the_champion(local_mlflow: None) -> None:
 
 
 def test_model_is_503_before_any_promotion(local_mlflow: None) -> None:
-    response = TestClient(create_app()).get("/v1/model")
+    response = TestClient(create_app(store=MemoryStore(), rate_limit_per_minute=0)).get("/v1/model")
 
     assert response.status_code == 503
 
@@ -146,7 +150,7 @@ def accuracy_client(engine: Engine) -> Iterator[TestClient]:
         with engine.connect() as connection:
             yield connection
 
-    app = create_app()
+    app = create_app(store=MemoryStore(), rate_limit_per_minute=0)
     app.dependency_overrides[get_connection] = test_connection
     app.dependency_overrides[get_now] = lambda: NOW
     app.dependency_overrides[get_champion] = lambda: CHAMPION_INFO
@@ -208,7 +212,7 @@ def test_accuracy_window_follows_days(accuracy_client: TestClient) -> None:
 
 def test_accuracy_ignores_other_model_versions(accuracy_client: TestClient) -> None:
     app = accuracy_client.app
-    assert isinstance(app, type(create_app()))
+    assert isinstance(app, FastAPI)
     app.dependency_overrides[get_champion] = lambda: CHAMPION_INFO.model_copy(
         update={"model_version": f"{MODEL_NAME}/4"}
     )
@@ -229,4 +233,9 @@ def test_accuracy_rejects_bad_days(accuracy_client: TestClient, days: int) -> No
 def test_accuracy_is_503_before_any_promotion(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(deps, "load_champion_info", lambda: None)
 
-    assert TestClient(create_app()).get("/v1/accuracy").status_code == 503
+    assert (
+        TestClient(create_app(store=MemoryStore(), rate_limit_per_minute=0))
+        .get("/v1/accuracy")
+        .status_code
+        == 503
+    )

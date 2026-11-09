@@ -18,6 +18,7 @@ import lightgbm as lgb
 import mlflow
 from mlflow import MlflowClient
 
+from airsight.core.cache import clear_model_cache
 from airsight.core.config import get_settings
 from airsight.core.logging import configure_logging
 from airsight.ml.dataset import DATASETS_DIR
@@ -62,6 +63,7 @@ def promote(run_id: str, datasets_dir: Path = DATASETS_DIR) -> int:
     trained_before = json.loads(dataset.with_suffix(".json").read_text())["final_test_start"]
     client.set_model_version_tag(MODEL_NAME, version.version, "trained_before", trained_before)
     client.set_registered_model_alias(MODEL_NAME, CHAMPION, version.version)
+    clear_model_cache(get_settings().redis_url)  # so /v1/model shows the new champion now
     return int(version.version)
 
 
