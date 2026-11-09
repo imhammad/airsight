@@ -195,3 +195,15 @@ uv run python -m airsight.api.loadtest --traffic cached
 cd ..
 docker compose up -d --wait api
 ```
+
+Measured on 2026-11-09 on a MacBook Air M5 (16 GB) with Docker Desktop, 20 concurrent clients
+for 30 seconds each:
+
+| Traffic | Requests a second | p50 | p95 | p99 | Cache hits |
+|---|---|---|---|---|---|
+| uncached | 920 | 20.9 ms | 28.1 ms | 51.5 ms | 2% |
+| cached | 3,241 | 6.0 ms | 7.2 ms | 9.9 ms | 100% |
+
+Every request returned 200. Uncached traffic still gets a few hits, because two random places
+sometimes round to the same 100 m cell. The API, the database and the load test shared one
+laptop, so these are local numbers; production numbers come with deployment (Phase 9).

@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.3.0` (correction model). Follow progress on the
+> **Status:** early development, `v0.4.0` (public API). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -53,6 +53,19 @@ Better than the EPA correction at 7 of 10 monitors. No claim yet above 35.4 µg/
 smoke days in the data. Details and limitations are in the
 [model card](docs/model-cards/airsight-correction-v1.md).
 
+## API
+
+A read-only public API serves the corrected readings, says which model produced each value, and
+publishes its own live accuracy. With the stack running:
+
+```
+curl "http://localhost:8000/v1/readings/nearest?lat=37.8716&lon=-122.2727&limit=1"
+curl "http://localhost:8000/v1/accuracy?days=7"
+```
+
+Endpoints, fields, errors, caching and rate limits are in the [API guide](docs/API.md), and
+interactive docs are at http://localhost:8000/docs.
+
 ## Quickstart
 
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
@@ -82,7 +95,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.1.0 | Foundations: repo, Docker, CI | ✅ |
 | v0.2.0 | Data ingestion from PurpleAir, AirNow and Open-Meteo | ✅ |
 | v0.3.0 | Calibration model that beats the EPA correction | ✅ |
-| v0.4.0 | Model serving and public `/v1` API | ⏳ |
+| v0.4.0 | Public API serving corrected readings | ✅ |
 | v0.5.0 | Web app: map, location detail, accuracy page | ⏳ |
 | v0.6.0 | 24-hour forecast with uncertainty | ⏳ |
 | v0.7.0 | Observability and live model monitoring | ⏳ |
@@ -93,6 +106,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 - [Architecture decisions](docs/adr/)
 - [Data exploration](docs/data-exploration.md): what the data looks like and what is wrong with it
 - [Model card](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
+- [API guide](docs/API.md): endpoints, fields, errors, caching, rate limits and performance
 - [Engineering log](docs/engineering-log.md): every problem hit and how it was solved
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
