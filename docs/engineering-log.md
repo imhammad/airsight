@@ -6,6 +6,12 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-09: git checkout undid more than the experiment
+- **Symptom:** after testing the OpenAPI contract with a temporary rename, the API container exited on startup with `ImportError: cannot import name 'Problem' from 'airsight.api.schemas'`.
+- **Cause:** the rename was undone with `git checkout <file>`, which resets the whole file to its last commit. That also removed the `Problem` class added earlier on the same branch and not yet committed.
+- **Fix:** added `Problem` back and reran the checks.
+- **Lesson:** to undo one experimental edit, reverse that edit (or commit or stash first). `git checkout <file>` and `git restore <file>` throw away every uncommitted change in it.
+
 ### 2026-11-06: Test run left MLflow model files in backend/mlruns
 - **Symptom:** the pre-commit hook `check-added-large-files` blocked the commit: `backend/mlruns/.../model.lgb (670 KB) exceeds 500 KB`.
 - **Cause:** the training test uses a temporary SQLite tracking database, but MLflow stores model files in `./mlruns` relative to the current folder, so pytest wrote them into `backend/`.

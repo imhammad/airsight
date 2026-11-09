@@ -1,0 +1,197 @@
+# AirSight API
+
+AirSight's public API serves corrected PM2.5 for low-cost sensors in the San Francisco Bay Area.
+Every value comes from a registered model, and the API says which one. The rules behind it are in
+[ADR 0008](adr/0008-public-api-design.md). The machine-readable contract is
+[openapi.json](openapi.json), and a running API shows interactive docs at `/docs`.
+
+- **Base URL (local):** `http://localhost:8000/v1`
+- **Format:** JSON, `snake_case` fields, missing values are `null` (never left out)
+- **Access:** read-only and public, no key needed, 60 requests a minute per IP
+
+## Endpoints
+
+| Method and path | Returns |
+|---|---|
+| `GET /v1/health` | service status and version |
+| `GET /v1/sensors?limit=&cursor=` | every sensor we serve, paginated |
+| `GET /v1/sensors/{sensor_id}` | one sensor and its latest reading |
+| `GET /v1/sensors/{sensor_id}/history?start=&end=` | hourly readings, oldest first, at most 31 days |
+| `GET /v1/readings/nearest?lat=&lon=&radius_km=&limit=` | latest readings of the closest healthy sensors |
+| `GET /v1/model` | the model behind every value, and its final-test results |
+| `GET /v1/accuracy?days=` | live error against official monitors, per station |
+
+### Readings near a place
+
+```
+curl "http://localhost:8000/v1/readings/nearest?lat=37.8716&lon=-122.2727&limit=1"
+```
+```json
+{
+  "data": [
+    {
+      "sensor": {
+        "id": "pa-27359",
+        "name": "Oceanview Neighborhood Assn",
+        "latitude": 37.87204,
+        "longitude": -122.30109,
+        "health": "ok"
+      },
+      "distance_km": 2.5,
+      "reading": {
+        "pm25_corrected": 9.1,
+        "pm25_raw": 9.9,
+        "aqi_category": "moderate",
+        "model_version": "airsight-correction/1",
+        "observed_at": "2026-11-07T05:00:00Z",
+        "stale": false
+      }
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+| Parameter | Default | Allowed |
+|---|---|---|
+| `lat`, `lon` | required | degrees, rounded to 3 decimals (about 100 m) |
+| `radius_km` | 10 | above 0, at most 50 |
+| `limit` | 5 | 1 to 20 |
+
+Only healthy sensors are returned, nearest first.
+
+### Sensors
+
+Sensor ids never change. They are built from the source, so `pa-27359` is PurpleAir sensor 27359.
+We serve the PurpleAir sensors within 1 km of an official monitor. A sensor the quality checks
+found unreliable is listed with `"health": "excluded"` and has no reading
+(`"latest_reading": null`).
+
+### History
+
+`start` is included and `end` is not. Both need a time zone, such as `2026-11-01T00:00:00Z` or
+`2026-10-31T17:00:00-07:00`. A time without one is rejected rather than guessed.
+
+```
+curl "http://localhost:8000/v1/sensors/pa-27359/history?start=2026-11-06T00:00:00Z&end=2026-11-07T00:00:00Z"
+```
+
+### Model and accuracy
+
+`/v1/model` names the champion model, the dataset it was trained on, `trained_before` (the model
+never saw hours from then on) and its final-test result. The final test is the mean of the
+per-station errors over 14 days (ADR 0007).
+
+`/v1/accuracy?days=7` scores the stored corrections against the official monitors over recent
+days (1 to 30). It only counts hours after `trained_before`, so it is always an out-of-sample
+score. For each station it reports the mean absolute error (MAE) of the corrected value, the raw
+sensor and the EPA's US-wide correction, plus the corrected value's bias (positive means it reads
+high).
+
+## Readings
+
+| Field | Meaning |
+|---|---|
+| `pm25_corrected` | corrected PM2.5 in µg/m³, one decimal |
+| `pm25_raw` | the sensor's own reading (mean of its two channels) in µg/m³ |
+| `aqi_category` | US EPA category of `pm25_corrected`, 2024 breakpoints (below) |
+| `model_version` | the model that produced the value, such as `airsight-correction/1` |
+| `observed_at` | start of the hour, UTC |
+| `stale` | `true` when the reading is more than 6 hours old (two missed ingestions) |
+
+| Category | PM2.5 (µg/m³) |
+|---|---|
+| `good` | up to 9.0 |
+| `moderate` | 9.1 to 35.4 |
+| `unhealthy_sensitive` | 35.5 to 55.4 |
+| `unhealthy` | 55.5 to 125.4 |
+| `very_unhealthy` | 125.5 to 225.4 |
+| `hazardous` | above 225.4 |
+
+The category follows the rounded value, so the number and the category always agree.
+
+## Pagination
+
+Lists are `{"data": [...], "next_cursor": "..."}`. Pass `next_cursor` back as `cursor` to get the
+next page, until it is `null`. `limit` is 50 by default and at most 200. Cursors are opaque and
+stay valid when sensors are added, so pages never skip or repeat a sensor.
+
+## Errors
+
+Every error is Problem Details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)) with content
+type `application/problem+json`:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "No sensor with id pa-0"
+}
+```
+
+| Status | When |
+|---|---|
+| 400 | a cursor this API did not return |
+| 404 | no sensor with this id, or no such path |
+| 422 | invalid parameters; `errors` lists each field and why |
+| 429 | over the rate limit; wait `Retry-After` seconds |
+| 500 | unexpected server error (details are logged, never returned) |
+| 503 | no model has been promoted yet |
+
+## Caching
+
+Answers change at most every 3 hours, so responses are cached in Redis and carry `Cache-Control`
+and `X-Cache: HIT` or `MISS`:
+
+| Data | Fresh for |
+|---|---|
+| latest readings, nearest, sensor list | 5 minutes |
+| history ending before today (UTC) | 1 hour |
+| model | 1 hour, cleared when a new model is promoted |
+| accuracy | 15 minutes |
+
+Coordinates are rounded to 3 decimals before the query runs, so two people 50 m apart share one
+cached answer.
+
+## Rate limits
+
+60 requests per minute per client IP, in fixed one-minute windows. Every response carries
+`RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` (seconds until the window resets).
+Over the limit, the API answers 429 with `Retry-After`. `/v1/health` is never limited. The limit
+is the `RATE_LIMIT_PER_MINUTE` setting.
+
+The client IP comes from the connection, or from `X-Forwarded-For` only when the request comes
+through a proxy we trust. Uvicorn trusts only the addresses in `FORWARDED_ALLOW_IPS` (by default
+just 127.0.0.1), so a client can't dodge the limit by sending a made-up header. In production
+(Phase 9) this is set to the load balancer's address.
+
+If Redis is unavailable, the API keeps answering without the cache and without the limit.
+
+## Compatibility
+
+Within `/v1`, changes are additive only: new endpoints, new optional parameters and new fields.
+Renaming or removing anything means `/v2`. Clients should ignore fields they don't know.
+
+[openapi.json](openapi.json) is generated from the code. A test fails when the code and the
+file disagree, so every API change appears as a diff of that file in its pull request, where
+reviewers check that it is additive. After changing the API, regenerate it from `backend/`:
+
+```
+uv run python -m airsight.api.openapi
+```
+
+## Performance
+
+`python -m airsight.api.loadtest` measures `/v1/readings/nearest` under load, with two kinds of
+traffic: `cached` (a few popular places, like real traffic) and `uncached` (a random place every
+time, so every request reaches PostgreSQL). Raise the rate limit first:
+
+```
+RATE_LIMIT_PER_MINUTE=1000000 docker compose up -d --wait api
+cd backend
+uv run python -m airsight.api.loadtest --traffic uncached
+uv run python -m airsight.api.loadtest --traffic cached
+cd ..
+docker compose up -d --wait api
+```

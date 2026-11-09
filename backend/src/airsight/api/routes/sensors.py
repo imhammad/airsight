@@ -6,6 +6,7 @@ from pydantic import AwareDatetime
 
 from airsight.api import queries
 from airsight.api.deps import DbConnection, Now
+from airsight.api.problems import responses
 from airsight.api.schemas import ReadingPage, SensorDetail, SensorPage
 
 router = APIRouter(tags=["sensors"])
@@ -13,7 +14,7 @@ router = APIRouter(tags=["sensors"])
 MAX_HISTORY = timedelta(days=31)
 
 
-@router.get("/sensors", response_model=SensorPage)
+@router.get("/sensors", response_model=SensorPage, responses=responses(400))
 def list_sensors(
     connection: DbConnection,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -27,7 +28,7 @@ def list_sensors(
     return SensorPage(data=page, next_cursor=next_cursor)
 
 
-@router.get("/sensors/{sensor_id}", response_model=SensorDetail)
+@router.get("/sensors/{sensor_id}", response_model=SensorDetail, responses=responses(404))
 def get_sensor(sensor_id: str, connection: DbConnection, now: Now) -> SensorDetail:
     """One sensor and its latest corrected reading."""
     sensor = queries.get_sensor(connection, sensor_id, now)
@@ -36,7 +37,7 @@ def get_sensor(sensor_id: str, connection: DbConnection, now: Now) -> SensorDeta
     return sensor
 
 
-@router.get("/sensors/{sensor_id}/history", response_model=ReadingPage)
+@router.get("/sensors/{sensor_id}/history", response_model=ReadingPage, responses=responses(404))
 def get_history(
     sensor_id: str,
     connection: DbConnection,
