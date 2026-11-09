@@ -63,6 +63,8 @@ async function get<P extends keyof paths>(
 }
 
 export const api = {
+  latest: (query: Query<"/v1/readings/latest"> = {}) =>
+    get<"/v1/readings/latest">("/v1/readings/latest", query),
   nearest: (query: Query<"/v1/readings/nearest">) =>
     get<"/v1/readings/nearest">("/v1/readings/nearest", query),
   sensors: (query: Query<"/v1/sensors"> = {}) =>
@@ -83,3 +85,15 @@ export const api = {
   accuracy: (query: Query<"/v1/accuracy"> = {}) =>
     get<"/v1/accuracy">("/v1/accuracy", query),
 };
+
+/** Every sensor with its latest reading, following next_cursor until the last page. */
+export async function allLatest(): Promise<SensorDetail[]> {
+  const sensors: SensorDetail[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await api.latest(cursor ? { cursor } : {});
+    sensors.push(...page.data);
+    cursor = page.next_cursor;
+  } while (cursor);
+  return sensors;
+}

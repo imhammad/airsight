@@ -300,6 +300,100 @@
         }
       }
     },
+    "/v1/readings/latest": {
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Latest",
+        "description": "Every sensor we serve with its latest reading, for a map. Excluded ones have none.",
+        "operationId": "latest_v1_readings_latest_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 200,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            },
+            "description": "next_cursor of the previous page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatestPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request, such as a cursor this API did not return",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/readings/nearest": {
       "get": {
         "tags": [
@@ -683,6 +777,35 @@
           "version"
         ],
         "title": "Health"
+      },
+      "LatestPage": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SensorDetail"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass back as cursor for the next page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "title": "LatestPage"
       },
       "ModelInfo": {
         "properties": {

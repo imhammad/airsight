@@ -40,6 +40,11 @@ class SensorPage(BaseModel):
     next_cursor: str | None = Field(description="Pass back as cursor for the next page")
 
 
+class LatestPage(BaseModel):
+    data: list[SensorDetail]
+    next_cursor: str | None = Field(description="Pass back as cursor for the next page")
+
+
 class NearbyPage(BaseModel):
     data: list[NearbyReading]
     next_cursor: str | None

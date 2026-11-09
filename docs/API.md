@@ -17,6 +17,7 @@ Every value comes from a registered model, and the API says which one. The rules
 | `GET /v1/sensors?limit=&cursor=` | every sensor we serve, paginated |
 | `GET /v1/sensors/{sensor_id}` | one sensor and its latest reading |
 | `GET /v1/sensors/{sensor_id}/history?start=&end=` | hourly readings, oldest first, at most 31 days |
+| `GET /v1/readings/latest?limit=&cursor=` | every sensor with its latest reading, for a map |
 | `GET /v1/readings/nearest?lat=&lon=&radius_km=&limit=` | latest readings of the closest healthy sensors |
 | `GET /v1/model` | the model behind every value, and its final-test results |
 | `GET /v1/accuracy?days=` | live error against official monitors, per station |
@@ -59,6 +60,13 @@ curl "http://localhost:8000/v1/readings/nearest?lat=37.8716&lon=-122.2727&limit=
 | `limit` | 5 | 1 to 20 |
 
 Only healthy sensors are returned, nearest first.
+
+### Every sensor, for a map
+
+`/v1/readings/latest` returns every sensor we serve, each shaped like `/v1/sensors/{sensor_id}`,
+so a map needs one request instead of one per sensor. `limit` is 200 by default here, so today
+the whole network fits on one page; follow `next_cursor` anyway. Excluded sensors are included
+with `"latest_reading": null`, so a map can show them as out of service.
 
 ### Sensors
 

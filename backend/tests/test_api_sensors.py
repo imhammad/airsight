@@ -199,6 +199,31 @@ def test_sensor_pages_cover_every_served_sensor_once(client: TestClient) -> None
     ).items()
 
 
+def test_latest_lists_every_served_sensor_with_its_reading(client: TestClient) -> None:
+    body = client.get("/v1/readings/latest").json()
+    by_id = {sensor["id"]: sensor for sensor in body["data"]}
+
+    assert body["next_cursor"] is None
+    assert {"pa-950001", "pa-950002", "pa-950003", "pa-950004"} <= set(by_id)
+    assert "pa-950005" not in by_id  # not near an official monitor, so not served
+    assert by_id["pa-950001"] == client.get("/v1/sensors/pa-950001").json()
+    assert by_id["pa-950002"]["latest_reading"]["stale"] is True
+    assert by_id["pa-950003"]["health"] == "excluded"
+    assert by_id["pa-950003"]["latest_reading"] is None
+
+
+def test_latest_pages_like_the_sensor_list(client: TestClient) -> None:
+    first = client.get("/v1/readings/latest", params={"limit": 1}).json()
+    second = client.get(
+        "/v1/readings/latest", params={"limit": 1, "cursor": first["next_cursor"]}
+    ).json()
+
+    assert len(first["data"]) == 1
+    assert second["data"][0]["id"] > first["data"][0]["id"]
+    assert client.get("/v1/readings/latest", params={"limit": 201}).status_code == 422
+    assert client.get("/v1/readings/latest", params={"cursor": "nope"}).status_code == 400
+
+
 def test_sensor_list_rejects_bad_paging(client: TestClient) -> None:
     assert client.get("/v1/sensors", params={"limit": 201}).status_code == 422
     assert client.get("/v1/sensors", params={"cursor": "not-a-cursor"}).status_code == 400

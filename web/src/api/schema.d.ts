@@ -81,6 +81,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/readings/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest
+         * @description Every sensor we serve with its latest reading, for a map. Excluded ones have none.
+         */
+        get: operations["latest_v1_readings_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/readings/nearest": {
         parameters: {
             query?: never;
@@ -204,6 +224,16 @@ export interface components {
             status: string;
             /** Version */
             version: string;
+        };
+        /** LatestPage */
+        LatestPage: {
+            /** Data */
+            data: components["schemas"]["SensorDetail"][];
+            /**
+             * Next Cursor
+             * @description Pass back as cursor for the next page
+             */
+            next_cursor: string | null;
         };
         /** ModelInfo */
         ModelInfo: {
@@ -571,6 +601,66 @@ export interface operations {
             };
             /** @description No sensor with this id */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid parameters; errors lists each one */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description More than the rate limit; wait for Retry-After seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    latest_v1_readings_latest_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description next_cursor of the previous page */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LatestPage"];
+                };
+            };
+            /** @description Bad request, such as a cursor this API did not return */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

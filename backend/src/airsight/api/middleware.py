@@ -28,6 +28,7 @@ WINDOW_SECONDS = 60
 UNLIMITED_PATHS = {"/v1/health"}  # health checks must never be throttled
 
 # How long each kind of answer stays fresh (ADR 0008)
+LATEST_PATHS = {"/v1/readings/latest", "/v1/readings/nearest", "/v1/sensors"}
 LATEST_TTL = 5 * 60  # new corrections land at most every 3 hours
 PAST_TTL = 60 * 60  # the past only changes if we backfill
 MODEL_TTL = 60 * 60  # cleared on promotion
@@ -83,7 +84,7 @@ def normalized_query(query: str) -> str:
 
 def cache_ttl(path: str, query: str, now: datetime) -> int | None:
     """Seconds an answer to this request stays fresh, or None if it isn't cached."""
-    if path in ("/v1/readings/nearest", "/v1/sensors") or re.fullmatch(r"/v1/sensors/[^/]+", path):
+    if path in LATEST_PATHS or re.fullmatch(r"/v1/sensors/[^/]+", path):
         return LATEST_TTL
     if re.fullmatch(r"/v1/sensors/[^/]+/history", path):
         try:
