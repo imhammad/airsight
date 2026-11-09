@@ -28,10 +28,11 @@ def create_app(
     # The last one added runs first: the rate limit counts every request, cached or not
     app.add_middleware(CacheMiddleware, store=store, clock=clock)
     app.add_middleware(RateLimitMiddleware, store=store, limit=limit, clock=clock)
-    app.include_router(health.router, prefix="/v1")
-    app.include_router(sensors.router, prefix="/v1")
-    app.include_router(readings.router, prefix="/v1")
-    app.include_router(model.router, prefix="/v1")
+    app.include_router(health.router, prefix="/v1", responses=problems.responses(500))
+    # Documented on every data endpoint, replacing FastAPI's default validation error shape
+    errors = problems.responses(422, 429, 500)
+    for router in (sensors.router, readings.router, model.router):
+        app.include_router(router, prefix="/v1", responses=errors)
     return app
 
 

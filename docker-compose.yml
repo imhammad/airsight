@@ -8,6 +8,7 @@ x-backend: &backend
     DATABASE_URL: postgresql+psycopg://airsight:airsight@db:5432/airsight
     REDIS_URL: redis://redis:6379/0
     MLFLOW_TRACKING_URI: http://mlflow:5000
+    RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
   # API keys come from .env on your machine. CI has no .env, so it's optional.
   env_file:
     - path: .env

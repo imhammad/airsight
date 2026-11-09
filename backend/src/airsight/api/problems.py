@@ -10,9 +10,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from airsight.api.schemas import Problem
+
 logger = logging.getLogger(__name__)
 
 PROBLEM_JSON = "application/problem+json"
+
+# What each error means on this API, for the OpenAPI contract
+DESCRIPTIONS = {
+    400: "Bad request, such as a cursor this API did not return",
+    404: "No sensor with this id",
+    422: "Invalid parameters; errors lists each one",
+    429: "More than the rate limit; wait for Retry-After seconds",
+    500: "Unexpected server error",
+    503: "No model has been promoted yet",
+}
 
 
 def problem(
@@ -50,6 +62,26 @@ async def _unexpected(request: Request, error: Exception) -> JSONResponse:
 
 
 def install(app: FastAPI) -> None:
+    """Answer every error with Problem Details, and say so in the OpenAPI schema."""
     app.add_exception_handler(HTTPException, _http_error)
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(Exception, _unexpected)
+
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            # responses() refers to Problem; FastAPI only adds models it sees itself
+            generate()["components"]["schemas"]["Problem"] = Problem.model_json_schema()
+        return app.openapi_schema  # type: ignore[return-value]
+
+    app.openapi = openapi  # type: ignore[method-assign]
+
+
+def responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """OpenAPI entries saying these statuses answer with Problem Details."""
+    schema = {"$ref": "#/components/schemas/Problem"}
+    return {
+        status: {"description": DESCRIPTIONS[status], "content": {PROBLEM_JSON: {"schema": schema}}}
+        for status in statuses
+    }

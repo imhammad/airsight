@@ -93,3 +93,15 @@ class Accuracy(BaseModel):
     hours: int
     headline_mae: Errors = Field(description="Mean of the per-station MAEs, as in ADR 0007")
     stations: list[StationAccuracy]
+
+
+class Problem(BaseModel):
+    """An error, as Problem Details (RFC 9457), sent as application/problem+json."""
+
+    type: str = Field(description='"about:blank": the status code says what went wrong')
+    title: str = Field(description="The HTTP status phrase, such as Not Found")
+    status: int
+    detail: str = Field(description="What went wrong with this request, for a person to read")
+    errors: list[dict[str, str]] | None = Field(
+        default=None, description="For 422 only: each invalid field and why"
+    )

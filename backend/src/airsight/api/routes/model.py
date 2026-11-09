@@ -5,18 +5,19 @@ from fastapi import APIRouter, Query
 
 from airsight.api import accuracy
 from airsight.api.deps import Champion, DbConnection, Now
+from airsight.api.problems import responses
 from airsight.api.schemas import Accuracy, ModelInfo
 
 router = APIRouter(tags=["model"])
 
 
-@router.get("/model", response_model=ModelInfo)
+@router.get("/model", response_model=ModelInfo, responses=responses(503))
 def get_model(champion: Champion) -> ModelInfo:
     """The model behind every corrected value, and how it scored on the final test."""
     return champion
 
 
-@router.get("/accuracy", response_model=Accuracy)
+@router.get("/accuracy", response_model=Accuracy, responses=responses(503))
 def get_accuracy(
     connection: DbConnection,
     now: Now,

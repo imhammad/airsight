@@ -1,0 +1,1115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AirSight API",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sensors": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "summary": "List Sensors",
+        "description": "Every sensor we serve, including excluded ones, in a stable order.",
+        "operationId": "list_sensors_v1_sensors_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor of the previous page",
+              "title": "Cursor"
+            },
+            "description": "next_cursor of the previous page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request, such as a cursor this API did not return",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sensors/{sensor_id}": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "summary": "Get Sensor",
+        "description": "One sensor and its latest corrected reading.",
+        "operationId": "get_sensor_v1_sensors__sensor_id__get",
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sensor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensorDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No sensor with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sensors/{sensor_id}/history": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "summary": "Get History",
+        "description": "Hourly corrected readings between start and end, oldest first (at most 31 days).",
+        "operationId": "get_history_v1_sensors__sensor_id__history_get",
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sensor Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Inclusive, with a time zone, e.g. ...Z",
+              "title": "Start"
+            },
+            "description": "Inclusive, with a time zone, e.g. ...Z"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Exclusive, with a time zone",
+              "title": "End"
+            },
+            "description": "Exclusive, with a time zone"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadingPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No sensor with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/readings/nearest": {
+      "get": {
+        "tags": [
+          "readings"
+        ],
+        "summary": "Nearest",
+        "description": "Latest corrected readings of the closest healthy sensors, nearest first.",
+        "operationId": "nearest_v1_readings_nearest_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude in degrees",
+              "title": "Lat"
+            },
+            "description": "Latitude in degrees"
+          },
+          {
+            "name": "lon",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude in degrees",
+              "title": "Lon"
+            },
+            "description": "Longitude in degrees"
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 50,
+              "exclusiveMinimum": 0,
+              "default": 10,
+              "title": "Radius Km"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/model": {
+      "get": {
+        "tags": [
+          "model"
+        ],
+        "summary": "Get Model",
+        "description": "The model behind every corrected value, and how it scored on the final test.",
+        "operationId": "get_model_v1_model_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model has been promoted yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/accuracy": {
+      "get": {
+        "tags": [
+          "model"
+        ],
+        "summary": "Get Accuracy",
+        "description": "Live error of the champion's corrections against the official monitors.\n\nOnly hours the model never trained on count, so this is an honest out-of-sample number.",
+        "operationId": "get_accuracy_v1_accuracy_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "description": "How many recent days to score",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "How many recent days to score"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accuracy"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model has been promoted yet",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Accuracy": {
+        "properties": {
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start",
+            "description": "Never before the model's trained_before"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "headline_mae": {
+            "$ref": "#/components/schemas/Errors",
+            "description": "Mean of the per-station MAEs, as in ADR 0007"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/StationAccuracy"
+            },
+            "type": "array",
+            "title": "Stations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_version",
+          "start",
+          "end",
+          "hours",
+          "headline_mae",
+          "stations"
+        ],
+        "title": "Accuracy"
+      },
+      "Errors": {
+        "properties": {
+          "corrected": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "epa": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epa",
+            "description": "The EPA's US-wide PurpleAir correction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "corrected",
+          "raw",
+          "epa"
+        ],
+        "title": "Errors",
+        "description": "Mean absolute error against the official monitor, in µg/m³."
+      },
+      "FinalTest": {
+        "properties": {
+          "headline_mae": {
+            "type": "number",
+            "title": "Headline Mae"
+          },
+          "raw_headline_mae": {
+            "type": "number",
+            "title": "Raw Headline Mae"
+          },
+          "epa_headline_mae": {
+            "type": "number",
+            "title": "Epa Headline Mae"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "headline_mae",
+          "raw_headline_mae",
+          "epa_headline_mae",
+          "hours"
+        ],
+        "title": "FinalTest",
+        "description": "The release gate from ADR 0007: mean of per-station MAE on the 14-day final test."
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "Health"
+      },
+      "ModelInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "As it appears on every reading"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset",
+            "description": "Content hash of the training dataset"
+          },
+          "trained_before": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trained Before",
+            "description": "The model never saw hours from here on"
+          },
+          "promoted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Promoted At"
+          },
+          "final_test": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinalTest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_card": {
+            "type": "string",
+            "title": "Model Card"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "model_version",
+          "dataset",
+          "trained_before",
+          "promoted_at",
+          "final_test",
+          "model_card"
+        ],
+        "title": "ModelInfo"
+      },
+      "NearbyPage": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/NearbyReading"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "title": "NearbyPage"
+      },
+      "NearbyReading": {
+        "properties": {
+          "sensor": {
+            "$ref": "#/components/schemas/Sensor"
+          },
+          "distance_km": {
+            "type": "number",
+            "title": "Distance Km"
+          },
+          "reading": {
+            "$ref": "#/components/schemas/Reading"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sensor",
+          "distance_km",
+          "reading"
+        ],
+        "title": "NearbyReading"
+      },
+      "Reading": {
+        "properties": {
+          "pm25_corrected": {
+            "type": "number",
+            "title": "Pm25 Corrected",
+            "description": "Corrected PM2.5 in µg/m³, one decimal"
+          },
+          "pm25_raw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pm25 Raw",
+            "description": "The sensor's own PM2.5 in µg/m³, one decimal"
+          },
+          "aqi_category": {
+            "type": "string",
+            "title": "Aqi Category",
+            "description": "US EPA category of pm25_corrected (2024 breakpoints)"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "The model that produced pm25_corrected"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At",
+            "description": "Start of the hour, UTC"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "description": "True when the reading is more than 6 hours old"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pm25_corrected",
+          "pm25_raw",
+          "aqi_category",
+          "model_version",
+          "observed_at",
+          "stale"
+        ],
+        "title": "Reading"
+      },
+      "ReadingPage": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Reading"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "title": "ReadingPage"
+      },
+      "Sensor": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable id, such as pa-131075 for PurpleAir sensor 131075"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "health": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "excluded"
+            ],
+            "title": "Health",
+            "description": "excluded when quality checks found the sensor unreliable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "health"
+        ],
+        "title": "Sensor"
+      },
+      "SensorDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable id, such as pa-131075 for PurpleAir sensor 131075"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "health": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "excluded"
+            ],
+            "title": "Health",
+            "description": "excluded when quality checks found the sensor unreliable"
+          },
+          "latest_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reading"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null for excluded sensors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude",
+          "health",
+          "latest_reading"
+        ],
+        "title": "SensorDetail"
+      },
+      "SensorPage": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Sensor"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass back as cursor for the next page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "title": "SensorPage"
+      },
+      "StationAccuracy": {
+        "properties": {
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "sensors": {
+            "type": "integer",
+            "title": "Sensors"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "mae": {
+            "$ref": "#/components/schemas/Errors"
+          },
+          "bias": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias",
+            "description": "Mean of corrected minus official; positive reads high"
+          }
+        },
+        "type": "object",
+        "required": [
+          "station",
+          "sensors",
+          "hours",
+          "mae",
+          "bias"
+        ],
+        "title": "StationAccuracy"
+      },
+      "Problem": {
+        "description": "An error, as Problem Details (RFC 9457), sent as application/problem+json.",
+        "properties": {
+          "type": {
+            "description": "\"about:blank\": the status code says what went wrong",
+            "title": "Type",
+            "type": "string"
+          },
+          "title": {
+            "description": "The HTTP status phrase, such as Not Found",
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "detail": {
+            "description": "What went wrong with this request, for a person to read",
+            "title": "Detail",
+            "type": "string"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "For 422 only: each invalid field and why",
+            "title": "Errors"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ],
+        "title": "Problem",
+        "type": "object"
+      }
+    }
+  }
+}
