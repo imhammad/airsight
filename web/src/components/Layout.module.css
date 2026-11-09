@@ -1,5 +1,6 @@
 .page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -66,5 +67,22 @@
   border-top: 1px solid var(--line);
   color: var(--secondary);
   font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* Edge to edge, filling the screen below the header (the map) */
+.fullBleed {
+  position: relative;
+  flex: 1;
+  min-height: 560px;
+}
+
+/* On full-bleed pages the disclaimer shrinks to one quiet line */
+.footnote {
+  padding: 8px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--secondary);
+  font-size: 0.75rem;
   text-align: center;
 }

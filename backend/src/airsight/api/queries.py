@@ -59,6 +59,16 @@ DETAIL_SQL = text(f"""
     WHERE {SERVED} AND s.source = :source AND s.source_id = :source_id
 """)
 
+LATEST_LIST_SQL = text(f"""
+    SELECT {SENSOR_COLUMNS}, latest.*
+    FROM sensors s
+    LEFT JOIN sensor_health h ON h.sensor_id = s.id
+    LEFT JOIN LATERAL ({LATEST}) latest ON COALESCE(h.status, 'ok') <> 'excluded'
+    WHERE {SERVED} AND (s.source, s.source_id) > (:after_source, :after_source_id)
+    ORDER BY s.source, s.source_id
+    LIMIT :limit
+""")
+
 NEAREST_SQL = text(f"""
     WITH here AS (SELECT ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography AS point)
     SELECT {SENSOR_COLUMNS}, ST_Distance(s.location, here.point) AS distance_m, latest.*
@@ -139,6 +149,24 @@ def list_sensors(
         {"after_source": after_source, "after_source_id": after_source_id, "limit": limit + 1},
     ).mappings()
     page = [_sensor(row) for row in rows]
+    if len(page) <= limit:
+        return page, None
+    page = page[:limit]
+    return page, encode_cursor(page[-1])
+
+
+def list_latest(
+    connection: Connection, cursor: str | None, limit: int, now: datetime
+) -> tuple[list[SensorDetail], str | None]:
+    """One page of served sensors with their latest reading, in the same order as list_sensors."""
+    after_source, after_source_id = decode_cursor(cursor) if cursor else ("", "")
+    rows = connection.execute(
+        LATEST_LIST_SQL,
+        {"after_source": after_source, "after_source_id": after_source_id, "limit": limit + 1},
+    ).mappings()
+    page = [
+        SensorDetail(**_sensor(row).model_dump(), latest_reading=_reading(row, now)) for row in rows
+    ]
     if len(page) <= limit:
         return page, None
     page = page[:limit]

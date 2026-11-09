@@ -13,7 +13,7 @@ test("every page has the wordmark and the main navigation", async () => {
 
   expect(screen.getByRole("link", { name: "AirSight" })).toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Main" });
-  expect(nav).toHaveTextContent("Nearby");
+  expect(nav).toHaveTextContent("Map");
   expect(nav).toHaveTextContent("Accuracy");
   expect(nav).toHaveTextContent("About");
 });

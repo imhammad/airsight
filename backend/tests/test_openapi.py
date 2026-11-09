@@ -35,6 +35,7 @@ def test_every_endpoint_in_adr_0008_exists() -> None:
         "/v1/sensors",
         "/v1/sensors/{sensor_id}",
         "/v1/sensors/{sensor_id}/history",
+        "/v1/readings/latest",  # added for the map (#90)
         "/v1/readings/nearest",
         "/v1/model",
         "/v1/accuracy",

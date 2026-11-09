@@ -1,13 +1,17 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useMatches } from "react-router";
+import type { RouteHandle } from "../routes";
 import styles from "./Layout.module.css";
 
 const LINKS = [
-  { to: "/", label: "Nearby" },
+  { to: "/", label: "Map" },
   { to: "/accuracy", label: "Accuracy" },
   { to: "/about", label: "About" },
 ];
 
 export function Layout() {
+  const fullBleed = useMatches().some(
+    (match) => (match.handle as RouteHandle | undefined)?.fullBleed,
+  );
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -32,10 +36,10 @@ export function Layout() {
           </ul>
         </nav>
       </header>
-      <main className={styles.main}>
+      <main className={fullBleed ? styles.fullBleed : styles.main}>
         <Outlet />
       </main>
-      <footer className={styles.footer}>
+      <footer className={fullBleed ? styles.footnote : styles.footer}>
         <p>
           Corrected PurpleAir readings, checked against official AirNow
           monitors. Not for regulatory use.

@@ -6,6 +6,20 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-09: MapLibre's worker failed to load under Vite
+
+**Problem:** With MapLibre GL 6 the map stayed blank and the console said `Worker failed to load. Check that the worker URL is correct.`
+**Cause:** MapLibre finds its web worker next to its own file (`new URL(name, import.meta.url)` with a computed name). Vite pre-bundles dependencies in development and renames chunks in production, so that file isn't where MapLibre looks, and Vite can't see the computed URL to copy it.
+**Fix:** Import the worker with Vite's `?url` suffix (`maplibre-gl/dist/maplibre-gl-worker.mjs?url`) and pass it to `setWorkerUrl()` before creating the map. Vite then emits the file and hands back its final URL.
+**Lesson:** A library that loads extra files at runtime needs its URLs handed over explicitly when a bundler moves things around.
+
+### 2026-11-09: Tests saw elements from earlier tests
+
+**Problem:** New map tests failed with "Found multiple elements" for a button that appears once on the page.
+**Cause:** Testing Library unmounts each test's components automatically only when Vitest's globals are on. Ours are off (we import `test` and `expect`), so every render stayed in the document.
+**Fix:** `src/test/setup.ts` now calls `cleanup()` in an `afterEach`.
+**Lesson:** "Automatic" test helpers often depend on a config switch. Check what turns them on.
+
 ### 2026-11-09: Web tests passed locally but CI could not find src/lib/time
 
 **Problem:** On the #89 PR, CI/Web checks failed with `Failed to resolve import "../lib/time"`, although every test passed on the Mac.
