@@ -23,6 +23,9 @@ class Settings(BaseSettings):
 
     http_timeout_seconds: float = 30.0
 
+    # Public API (ADR 0008)
+    rate_limit_per_minute: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:
