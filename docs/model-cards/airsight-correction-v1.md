@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Champion since 2026-11-06 (AirSight v0.3.0) |
+| **Status** | Champion since 2026-11-06 (AirSight v0.3.0), served by the API since v0.4.0 |
 | **Registry** | MLflow model `airsight-correction`, version 1, alias `@champion` |
 | **Training run** | `034df2accb7b4f51a02b01c8d3be47ef` (experiment `correction`) |
 | **Dataset** | `pairs-f5a557c189d5`: 54,869 sensor-hours, 31 sensors, 10 official monitors, 2026-08-07 to 2026-11-05 |
@@ -87,6 +87,25 @@ Bold marks the better of EPA and v1 at each station.
 
 On the development period (2026-08-07 to 2026-10-22) the picture was similar: headline 2.70
 against 3.95 for EPA and 3.84 for raw, better than EPA at 9 of 10 stations.
+
+## Live performance
+
+Since v0.4.0 the API scores the stored corrections against the official monitors every day, only
+on hours after the training data ends (`GET /v1/accuracy`, see [API.md](../API.md)). First week
+live, 2026-10-31 to 2026-11-07 (3,550 hours, 10 stations):
+
+| | Headline MAE |
+|---|---|
+| Raw PurpleAir | 3.11 |
+| EPA correction | 3.60 |
+| **airsight-correction v1** | **2.77** |
+
+Still better than EPA at 7 of 10 stations, but better than raw readings at only 6 of 10: it loses
+to raw at Berkeley Aquatic Park, Redwood City, San Francisco and San Rafael. The bias has changed
+sign. On the final test the model read low on moderate hours; live, it reads 1 to 2 µg/m³ **high**
+at 9 of 10 stations, and +3.5 at San Rafael. The likely cause is that November air is cleaner
+than the August to October training data. This is the drift the monitoring and retraining in
+Phase 8 are for.
 
 ## Limitations
 

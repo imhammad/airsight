@@ -6,6 +6,31 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-09
+
+Public API: corrected readings for every served sensor, which model made them, and the model's
+live accuracy against official monitors, with caching, rate limits and a tested contract.
+
+### Added
+
+- API design decision: REST under `/v1`, stable sensor ids, Problem Details errors, cursor
+  pagination, cache lifetimes, rate limits and additive-only changes (ADR 0008) (#73).
+- Corrected readings stored per sensor-hour with the model version that made them, refreshed by a
+  Celery task every 3 hours (#74).
+- `GET /v1/sensors`, `/v1/sensors/{sensor_id}` and `/v1/readings/nearest`, with AQI categories
+  and a stale flag (#75).
+- `GET /v1/sensors/{sensor_id}/history`, `/v1/model` and `/v1/accuracy`: live, out-of-sample
+  error per station against raw and EPA baselines (#76).
+- Redis response cache with `X-Cache` and `Cache-Control`, cleared when a model is promoted;
+  60 requests a minute per IP with `RateLimit-*` headers; RFC 9457 errors (#84).
+- OpenAPI contract in `docs/openapi.json` with a test that keeps it in sync, the API guide
+  `docs/API.md`, and a load test (#85).
+- Live performance in the model card.
+
+### Changed
+
+- Promotion tags the model version with `trained_before`, the first hour it never saw (#76).
+
 ## 0.3.0 - 2026-11-06
 
 Correction model: LightGBM corrects PurpleAir readings with a headline error of 2.50 µg/m³ on
