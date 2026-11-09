@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { MapPage } from "./pages/MapPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { SensorPage } from "./pages/SensorPage";
 
 /** Set on a route whose page fills the screen edge to edge, like the map. */
 export interface RouteHandle {
@@ -20,7 +21,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: "sensors/:sensorId",
-        element: <PlaceholderPage title="Sensor details" issue={91} />,
+        element: <SensorPage />,
       },
       {
         path: "accuracy",

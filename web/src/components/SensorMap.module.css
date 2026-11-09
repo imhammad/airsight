@@ -88,8 +88,18 @@
   border-top-color: var(--line);
 }
 
+.frame :global(.maplibregl-ctrl-attrib) {
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--secondary);
+}
+
+.frame :global(.maplibregl-ctrl-attrib a) {
+  color: var(--secondary);
+}
+
 @media (prefers-color-scheme: dark) {
-  .frame :global(.maplibregl-ctrl-icon) {
+  .frame :global(.maplibregl-ctrl-icon),
+  .frame :global(.maplibregl-ctrl-attrib-button) {
     filter: invert(1);
   }
 }

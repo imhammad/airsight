@@ -156,3 +156,24 @@ test("says so when you are outside the Bay Area", async () => {
     screen.getByRole("heading", { name: "Lake Merritt" }),
   ).toBeInTheDocument();
 });
+
+test("choosing a sensor clears the location message", async () => {
+  answerWith(200, page);
+  vi.stubGlobal("navigator", {
+    ...navigator,
+    geolocation: {
+      getCurrentPosition: (
+        _success: PositionCallback,
+        failure: PositionErrorCallback,
+      ) => failure({ code: 1 } as GeolocationPositionError),
+    },
+  });
+  renderAt("/");
+  await screen.findByRole("heading", { name: "Lake Merritt" });
+  fireEvent.click(screen.getByRole("button", { name: "Use my location" }));
+  expect(screen.getByRole("status")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByText("Marker Oceanview Neighborhood Assn"));
+
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});

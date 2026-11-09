@@ -1,0 +1,42 @@
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+  border-bottom: 1px solid var(--line);
+}
+
+.slot {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  height: 100%;
+}
+
+/* Bars grow up from the axis once, when the chart first appears */
+.bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  transform-origin: bottom;
+  animation: grow var(--duration) var(--ease) both;
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+}
