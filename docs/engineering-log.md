@@ -6,6 +6,13 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-09: Web tests passed locally but CI could not find src/lib/time
+
+**Problem:** On the #89 PR, CI/Web checks failed with `Failed to resolve import "../lib/time"`, although every test passed on the Mac.
+**Cause:** The root `.gitignore` comes from GitHub's Python template, which ignores every `lib/` folder (Python build output). `git add -A` silently skipped `web/src/lib/`, so the files existed only on the laptop.
+**Fix:** Added `!web/src/lib/` to `.gitignore` and committed the folder.
+**Lesson:** "Works on my machine, fails in CI" often means a file was never committed. `git check-ignore -v <file>` names the rule that hides it. CI building from a clean checkout is what caught it.
+
 ### 2026-11-09: openapi-typescript refuses TypeScript 6
 - **Symptom:** `npm install --save-dev openapi-typescript` fails with `ERESOLVE`: it declares the peer `typescript@^5.x`, and the web app uses TypeScript 6.0.
 - **Cause:** the package hasn't widened its peer range yet. It only uses the TypeScript compiler API to print types, which is unchanged in 6.0.
