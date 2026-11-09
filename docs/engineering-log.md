@@ -6,6 +6,19 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-09: Web tests passed locally but CI could not find src/lib/time
+
+**Problem:** On the #89 PR, CI/Web checks failed with `Failed to resolve import "../lib/time"`, although every test passed on the Mac.
+**Cause:** The root `.gitignore` comes from GitHub's Python template, which ignores every `lib/` folder (Python build output). `git add -A` silently skipped `web/src/lib/`, so the files existed only on the laptop.
+**Fix:** Added `!web/src/lib/` to `.gitignore` and committed the folder.
+**Lesson:** "Works on my machine, fails in CI" often means a file was never committed. `git check-ignore -v <file>` names the rule that hides it. CI building from a clean checkout is what caught it.
+
+### 2026-11-09: openapi-typescript refuses TypeScript 6
+- **Symptom:** `npm install --save-dev openapi-typescript` fails with `ERESOLVE`: it declares the peer `typescript@^5.x`, and the web app uses TypeScript 6.0.
+- **Cause:** the package hasn't widened its peer range yet. It only uses the TypeScript compiler API to print types, which is unchanged in 6.0.
+- **Fix:** an npm `overrides` entry in `web/package.json` makes that one package use our TypeScript (`"openapi-typescript": {"typescript": "$typescript"}`). The generated types were checked, and `npm run api:check` would fail if they ever came out wrong.
+- **Lesson:** fix a peer conflict for the one package that has it. `--force` and `--legacy-peer-deps` disable the check for the whole tree.
+
 ### 2026-11-09: git checkout undid more than the experiment
 - **Symptom:** after testing the OpenAPI contract with a temporary rename, the API container exited on startup with `ImportError: cannot import name 'Problem' from 'airsight.api.schemas'`.
 - **Cause:** the rename was undone with `git checkout <file>`, which resets the whole file to its last commit. That also removed the `Problem` class added earlier on the same branch and not yet committed.
