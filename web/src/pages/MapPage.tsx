@@ -50,6 +50,12 @@ export function MapPage() {
   const selected =
     sensors.find((sensor) => sensor.id === chosenId) ?? nearest ?? null;
 
+  // Picking a sensor answers any location message, so clear it
+  function choose(sensorId: string) {
+    setChosenId(sensorId);
+    setLocating("idle");
+  }
+
   function locateMe() {
     if (!navigator.geolocation) {
       setLocating("denied");
@@ -81,7 +87,7 @@ export function MapPage() {
             <SensorMap
               sensors={sensors}
               selectedId={selected?.id ?? null}
-              onSelect={setChosenId}
+              onSelect={choose}
               focus={selected ? position(selected) : place}
               you={place.isYou ? place : null}
             />

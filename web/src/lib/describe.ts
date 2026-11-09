@@ -10,3 +10,9 @@ export function describeSensor(sensor: SensorDetail): string {
   const label = `${name}, ${reading.pm25_corrected.toFixed(1)} µg/m³, ${category(reading.aqi_category).label}`;
   return reading.stale ? `${label}, over 6 hours old` : label;
 }
+
+/** "airsight-correction/1" as people read it: "airsight-correction v1". */
+export function modelLabel(modelVersion: string): string {
+  const [name, version] = modelVersion.split("/");
+  return version ? `${name} v${version}` : modelVersion;
+}

@@ -1,0 +1,139 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: -12px; /* the back link brings its own height */
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+.muted {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+
+.small {
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fade-in var(--duration) var(--ease) both;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  animation: fade-in var(--duration) var(--ease) both;
+}
+
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.number {
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
+.advice {
+  line-height: 1.5;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.outOfService {
+  font-weight: 600;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.sectionTitle h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.accuracy {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+
+.accuracy:hover {
+  border-color: var(--accent);
+}
