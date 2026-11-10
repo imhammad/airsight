@@ -21,6 +21,7 @@ ACCURACY_SQL = text("""
     hours AS (
         SELECT
             m.name AS station,
+            m.id AS station_id,
             c.sensor_id,
             c.pm25 AS corrected,
             (l.pm25_a + l.pm25_b) / 2 AS raw,
@@ -40,9 +41,13 @@ ACCURACY_SQL = text("""
         avg(abs(corrected - official)) AS mae_corrected,
         avg(abs(raw - official)) AS mae_raw,
         avg(abs(epa - official)) AS mae_epa,
-        avg(corrected - official) AS bias
+        avg(corrected - official) AS bias,
+        COALESCE(
+            (SELECT max(v.source) FROM serving_sources v WHERE v.station_id = hours.station_id),
+            'corrected'
+        ) AS source
     FROM hours
-    GROUP BY station
+    GROUP BY station, station_id
     ORDER BY station
 """)
 
@@ -72,6 +77,7 @@ def score(connection: Connection, model_version: str, start: datetime, end: date
                 epa=_round(row["mae_epa"]),
             ),
             bias=_round(row["bias"]),
+            source=row["source"],
         )
         for row in rows
     ]

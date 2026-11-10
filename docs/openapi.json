@@ -1186,6 +1186,15 @@
             ],
             "title": "Bias",
             "description": "Mean of corrected minus official; positive reads high"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "corrected",
+              "raw"
+            ],
+            "title": "Source",
+            "description": "What sensors next to this monitor show now (ADR 0010)"
           }
         },
         "type": "object",
@@ -1194,7 +1203,8 @@
           "sensors",
           "hours",
           "mae",
-          "bias"
+          "bias",
+          "source"
         ],
         "title": "StationAccuracy"
       },

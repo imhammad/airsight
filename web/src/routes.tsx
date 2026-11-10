@@ -1,8 +1,9 @@
 import type { RouteObject } from "react-router";
 import { Layout } from "./components/Layout";
+import { AboutPage } from "./pages/AboutPage";
+import { AccuracyPage } from "./pages/AccuracyPage";
 import { MapPage } from "./pages/MapPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { SensorPage } from "./pages/SensorPage";
 
 /** Set on a route whose page fills the screen edge to edge, like the map. */
@@ -25,11 +26,11 @@ export const routes: RouteObject[] = [
       },
       {
         path: "accuracy",
-        element: <PlaceholderPage title="Accuracy" issue={92} />,
+        element: <AccuracyPage />,
       },
       {
         path: "about",
-        element: <PlaceholderPage title="About AirSight" issue={92} />,
+        element: <AboutPage />,
       },
       { path: "*", element: <NotFoundPage /> },
     ],

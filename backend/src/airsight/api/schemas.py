@@ -95,6 +95,7 @@ class StationAccuracy(BaseModel):
     hours: int
     mae: Errors
     bias: float | None = Field(description="Mean of corrected minus official; positive reads high")
+    source: Source = Field(description="What sensors next to this monitor show now (ADR 0010)")
 
 
 class Accuracy(BaseModel):
