@@ -94,9 +94,20 @@
   border-radius: 50%;
 }
 
-.hollow {
-  background: var(--surface);
+.rawSwatch {
+  background: #ffffff;
   border: 2px solid var(--secondary);
+}
+
+.note {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.hollow {
+  background: transparent;
+  border: 1.5px dashed var(--secondary);
 }
 
 .panel {

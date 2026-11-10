@@ -122,3 +122,17 @@ corrected_readings = Table(
     Column("model_version", Text, nullable=False),
     Column("computed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
+
+serving_sources = Table(
+    "serving_sources",
+    metadata,
+    Column("sensor_id", BigInteger, ForeignKey("sensors.id"), primary_key=True),
+    Column("station_id", BigInteger, ForeignKey("sensors.id"), nullable=False),
+    Column("source", Text, nullable=False),
+    Column("hours", Integer, nullable=False),
+    Column("corrected_mae", REAL),
+    Column("raw_mae", REAL),
+    Column("model_version", Text, nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("source IN ('corrected', 'raw')", name="serving_sources_source_check"),
+)

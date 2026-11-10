@@ -25,6 +25,7 @@ from airsight.core.tables import corrected_readings
 from airsight.ml.features import INPUT_COLUMNS
 from airsight.ml.predict import correct
 from airsight.ml.registry import load_champion_version
+from airsight.ml.serving import choose_sources
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +92,17 @@ def correct_window(
 def correct_recent(
     engine: Engine, window: timedelta = RECOMPUTE_WINDOW, now: datetime | None = None
 ) -> int:
-    """Recompute the last `window` of hours with the current champion. The worker's job."""
+    """Recompute the last `window` of hours with the current champion. The worker's job.
+
+    Then choose each sensor's source again (ml/serving.py), so the choice always reflects the
+    corrections just stored.
+    """
     mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
     booster, model_version = load_champion_version()
     end = now or datetime.now(UTC)
     count = correct_window(engine, booster, model_version, end - window, end)
     logger.info("Corrected %d sensor-hours with %s", count, model_version)
+    choose_sources(engine, model_version, end)
     return count
 
 

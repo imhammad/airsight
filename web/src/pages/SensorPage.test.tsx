@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { answerByPath, renderAt } from "../test/render";
-import { BROKEN, OCEANVIEW } from "../test/sensors";
+import { BROKEN, NO_READING, OCEANVIEW, RAW } from "../test/sensors";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -74,4 +74,31 @@ test("an unknown sensor says so", async () => {
   expect(
     await screen.findByRole("heading", { name: "Sensor not found" }),
   ).toBeInTheDocument();
+});
+
+test("a sensor showing raw explains why and keeps the corrected value", async () => {
+  answerByPath({
+    "/v1/sensors/pa-1003": [200, RAW],
+    "/v1/sensors/pa-1003/history": [200, { data: [], next_cursor: null }],
+  });
+
+  renderAt("/sensors/pa-1003");
+
+  expect(await screen.findByText("8.4")).toBeInTheDocument();
+  expect(
+    screen.getByText(/our correction has been less accurate/),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Corrected value")).toBeInTheDocument();
+  expect(screen.getByText("10.2")).toBeInTheDocument();
+  expect(screen.queryByText("Sensor's own reading")).not.toBeInTheDocument();
+});
+
+test("a healthy sensor without a reading isn't called out of service", async () => {
+  answerByPath({ "/v1/sensors/pa-1004": [200, NO_READING] });
+
+  renderAt("/sensors/pa-1004");
+
+  expect(await screen.findByText("No reading yet")).toBeInTheDocument();
+  expect(screen.queryByText("Out of service")).not.toBeInTheDocument();
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });

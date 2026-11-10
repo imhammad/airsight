@@ -46,6 +46,7 @@ function markerElement(sensor: SensorDetail): HTMLButtonElement {
     button.classList.add(styles.excluded);
   } else {
     button.style.setProperty("--colour", category(reading.aqi_category).colour);
+    if (reading.source === "raw") button.classList.add(styles.raw);
     if (reading.stale) button.classList.add(styles.stale);
   }
   const dot = document.createElement("span");

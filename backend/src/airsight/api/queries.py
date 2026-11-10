@@ -32,9 +32,16 @@ SERVED = """
     AND EXISTS (SELECT 1 FROM sensor_pairs p WHERE p.lowcost_sensor_id = s.id)
 """
 
+# Which value a sensor shows (ADR 0010). Sensors without a choice yet show corrected.
+SERVING = """
+    COALESCE(
+        (SELECT v.source FROM serving_sources v WHERE v.sensor_id = c.sensor_id), 'corrected'
+    ) AS serving
+"""
+
 # The newest corrected value of each sensor, with the raw reading of the same hour
-LATEST = """
-    SELECT c.time, c.pm25, c.model_version, (l.pm25_a + l.pm25_b) / 2 AS raw
+LATEST = f"""
+    SELECT c.time, c.pm25, c.model_version, (l.pm25_a + l.pm25_b) / 2 AS raw, {SERVING}
     FROM corrected_readings c
     LEFT JOIN lowcost_readings l ON l.sensor_id = c.sensor_id AND l.time = c.time
     WHERE c.sensor_id = s.id
@@ -129,10 +136,15 @@ def _reading(row: RowMapping, now: datetime) -> Reading | None:
     if row["time"] is None:
         return None
     observed_at = row["time"].astimezone(UTC)
+    # Raw is shown only where the sensor chose it and this hour has a raw value
+    source = "raw" if row["serving"] == "raw" and row["raw"] is not None else "corrected"
+    shown = row["raw"] if source == "raw" else row["pm25"]
     return Reading(
+        pm25=round_pm25(shown),
+        source=source,
         pm25_corrected=round_pm25(row["pm25"]),
         pm25_raw=None if row["raw"] is None else round_pm25(row["raw"]),
-        aqi_category=aqi_category(row["pm25"]),
+        aqi_category=aqi_category(shown),
         model_version=row["model_version"],
         observed_at=observed_at,
         stale=now - observed_at > STALE_AFTER,
@@ -219,7 +231,7 @@ def nearest(
 
 
 HISTORY_SQL = text(f"""
-    SELECT c.time, c.pm25, c.model_version, (l.pm25_a + l.pm25_b) / 2 AS raw
+    SELECT c.time, c.pm25, c.model_version, (l.pm25_a + l.pm25_b) / 2 AS raw, {SERVING}
     FROM sensors s
     LEFT JOIN sensor_health h ON h.sensor_id = s.id
     JOIN corrected_readings c ON c.sensor_id = s.id

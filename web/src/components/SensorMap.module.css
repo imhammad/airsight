@@ -59,12 +59,19 @@
   opacity: 0.5;
 }
 
-/* Out of service: no colour, because there is no reading to colour */
+/* Showing the sensor's own reading: no category colour, so it can't pass for a correction */
+.raw .dot {
+  background: #ffffff;
+  border-color: var(--secondary);
+}
+
+/* No reading: an empty dashed ring, because there is nothing to colour */
 .excluded .dot {
   width: 14px;
   height: 14px;
-  background: var(--surface);
-  border-color: var(--secondary);
+  background: transparent;
+  border: 2px dashed var(--secondary);
+  box-shadow: none;
 }
 
 .you {

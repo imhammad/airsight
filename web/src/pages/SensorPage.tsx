@@ -6,7 +6,7 @@ import { CategoryBadge } from "../components/CategoryBadge";
 import { HistoryChart } from "../components/HistoryChart";
 import { ErrorMessage, Loading } from "../components/Status";
 import { category } from "../lib/aqi";
-import { modelLabel } from "../lib/describe";
+import { modelLabel, NO_READING_NOTE, RAW_NOTE } from "../lib/describe";
 import { ago, HOUR, startOfHour } from "../lib/time";
 import styles from "./SensorPage.module.css";
 
@@ -71,7 +71,7 @@ function SensorDetails({ sensor, now }: { sensor: SensorDetail; now: number }) {
         <h1>{sensor.name ?? sensor.id}</h1>
       </div>
 
-      {!reading ? (
+      {sensor.health === "excluded" ? (
         <div className={styles.card}>
           <p className={styles.outOfService}>Out of service</p>
           <p>
@@ -79,14 +79,17 @@ function SensorDetails({ sensor, now }: { sensor: SensorDetail; now: number }) {
             its readings. Nearby sensors on the map still have theirs.
           </p>
         </div>
+      ) : !reading ? (
+        <div className={styles.card}>
+          <p className={styles.outOfService}>No reading yet</p>
+          <p>{NO_READING_NOTE}</p>
+        </div>
       ) : (
         <>
           <div className={styles.card}>
             <div className={styles.headline}>
               <p className={styles.value}>
-                <span className={styles.number}>
-                  {reading.pm25_corrected.toFixed(1)}
-                </span>
+                <span className={styles.number}>{reading.pm25.toFixed(1)}</span>
                 <span className={styles.unit}>µg/m³ PM2.5</span>
               </p>
               <CategoryBadge value={reading.aqi_category} />
@@ -96,11 +99,21 @@ function SensorDetails({ sensor, now }: { sensor: SensorDetail; now: number }) {
                 ? "This sensor hasn't reported for over 6 hours, so this reading may be out of date."
                 : category(reading.aqi_category).advice}
             </p>
+            {reading.source === "raw" && (
+              <p className={styles.note}>{RAW_NOTE}</p>
+            )}
             <dl className={styles.facts}>
-              <div>
-                <dt>Sensor's own reading</dt>
-                <dd>{reading.pm25_raw?.toFixed(1) ?? "Not available"}</dd>
-              </div>
+              {reading.source === "raw" ? (
+                <div>
+                  <dt>Corrected value</dt>
+                  <dd>{reading.pm25_corrected.toFixed(1)}</dd>
+                </div>
+              ) : (
+                <div>
+                  <dt>Sensor's own reading</dt>
+                  <dd>{reading.pm25_raw?.toFixed(1) ?? "Not available"}</dd>
+                </div>
+              )}
               <div>
                 <dt>Corrected by</dt>
                 <dd>{modelLabel(reading.model_version)}</dd>
