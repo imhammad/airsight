@@ -32,6 +32,7 @@ cp .env.example .env        # then add your own API keys; .env is never committe
 pre-commit run --all-files                    # formatting, lint, types, file hygiene
 (cd backend && uv run pytest)                 # backend tests
 (cd web && npm run lint && npm test && npm run build)
+(cd web && npm run e2e && npm run lighthouse)  # browser tests; once first: npx playwright install chromium
 ```
 
 ## Workflow

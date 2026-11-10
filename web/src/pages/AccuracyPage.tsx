@@ -25,11 +25,14 @@ export function AccuracyPage() {
       ) : (
         <Scores accuracy={accuracy.data} />
       )}
-      <p className={styles.note}>
-        Where the correction does worse than the sensor's own reading, the map
-        shows the raw reading and says so, until the model is retrained.{" "}
-        <NavLink to="/about">How we measure this</NavLink>
-      </p>
+      {/* Only once the scores are in, so the note doesn't jump down when they arrive */}
+      {!accuracy.isPending && (
+        <p className={styles.note}>
+          Where the correction does worse than the sensor's own reading, the map
+          shows the raw reading and says so, until the model is retrained.{" "}
+          <NavLink to="/about">How we measure this</NavLink>
+        </p>
+      )}
     </article>
   );
 }
