@@ -40,6 +40,8 @@ curl "http://localhost:8000/v1/readings/nearest?lat=37.8716&lon=-122.2727&limit=
       },
       "distance_km": 2.5,
       "reading": {
+        "pm25": 9.1,
+        "source": "corrected",
         "pm25_corrected": 9.1,
         "pm25_raw": 9.9,
         "aqi_category": "moderate",
@@ -100,9 +102,11 @@ high).
 
 | Field | Meaning |
 |---|---|
+| `pm25` | the PM2.5 to show, in µg/m³: the value `source` names |
+| `source` | `corrected`, or `raw` where the correction has been less accurate (below) |
 | `pm25_corrected` | corrected PM2.5 in µg/m³, one decimal |
 | `pm25_raw` | the sensor's own reading (mean of its two channels) in µg/m³ |
-| `aqi_category` | US EPA category of `pm25_corrected`, 2024 breakpoints (below) |
+| `aqi_category` | US EPA category of `pm25`, 2024 breakpoints (below) |
 | `model_version` | the model that produced the value, such as `airsight-correction/1` |
 | `observed_at` | start of the hour, UTC |
 | `stale` | `true` when the reading is more than 6 hours old (two missed ingestions) |
@@ -117,6 +121,14 @@ high).
 | `hazardous` | above 225.4 |
 
 The category follows the rounded value, so the number and the category always agree.
+
+### Corrected or raw
+
+Every 3 hours, each official monitor's last 14 days are scored. Where the corrections were
+further from the monitor than the sensors' own readings, over at least 200 hours, the sensors
+next to that monitor show raw (`source: "raw"`, and `pm25` equals `pm25_raw`). They switch back
+on their own once the correction wins again. The rule and its reasons are in
+[ADR 0010](adr/0010-raw-fallback.md).
 
 ## Pagination
 
@@ -180,6 +192,10 @@ If Redis is unavailable, the API keeps answering without the cache and without t
 
 Within `/v1`, changes are additive only: new endpoints, new optional parameters and new fields.
 Renaming or removing anything means `/v2`. Clients should ignore fields they don't know.
+
+One exception, before v1.0.0 and while the web app was the only client: in v0.5.0
+`aqi_category` started following the new `pm25` field instead of `pm25_corrected`
+(ADR 0010). For sensors showing corrected readings nothing changed.
 
 [openapi.json](openapi.json) is generated from the code. A test fails when the code and the
 file disagree, so every API change appears as a diff of that file in its pull request, where

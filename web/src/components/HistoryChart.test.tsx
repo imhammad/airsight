@@ -7,6 +7,8 @@ import { HistoryChart } from "./HistoryChart";
 const NOW = Date.parse("2026-11-09T14:30:00Z");
 
 const reading = (iso: string, pm25: number, category: string): Reading => ({
+  pm25,
+  source: "corrected",
   pm25_corrected: pm25,
   pm25_raw: pm25 + 1,
   aqi_category: category,

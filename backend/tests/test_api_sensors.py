@@ -117,6 +117,8 @@ def test_sensor_shows_its_latest_reading_with_provenance(client: TestClient) -> 
         "longitude": pytest.approx(-123.7000),
         "health": "ok",
         "latest_reading": {
+            "pm25": 8.4,
+            "source": "corrected",  # no choice stored yet, so the correction is shown
             "pm25_corrected": 8.4,  # the newer of the two hours: 7.43 + 1, one decimal
             "pm25_raw": 12.5,
             "aqi_category": "good",

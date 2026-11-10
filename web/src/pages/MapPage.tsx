@@ -5,6 +5,7 @@ import { allLatest, type SensorDetail } from "../api/client";
 import { CategoryBadge } from "../components/CategoryBadge";
 import { ErrorMessage, Loading } from "../components/Status";
 import { CATEGORIES, category } from "../lib/aqi";
+import { NO_READING_NOTE, RAW_NOTE } from "../lib/describe";
 import { closest, distanceKm, type Point } from "../lib/geo";
 import { ago } from "../lib/time";
 import styles from "./MapPage.module.css";
@@ -170,18 +171,18 @@ function SensorSummary({
         </div>
         {reading && (
           <p className={styles.value}>
-            <span className={styles.number}>
-              {reading.pm25_corrected.toFixed(1)}
-            </span>
+            <span className={styles.number}>{reading.pm25.toFixed(1)}</span>
             <span className={styles.unit}>µg/m³</span>
           </p>
         )}
       </div>
-      {!reading ? (
+      {sensor.health === "excluded" ? (
         <p>
           Our quality checks found this sensor unreliable, so we don't show its
           readings.
         </p>
+      ) : !reading ? (
+        <p>{NO_READING_NOTE}</p>
       ) : reading.stale ? (
         <p>
           This sensor hasn't reported for over 6 hours, so this reading may be
@@ -190,6 +191,7 @@ function SensorSummary({
       ) : (
         <p>{category(reading.aqi_category).advice}</p>
       )}
+      {reading?.source === "raw" && <p className={styles.note}>{RAW_NOTE}</p>}
       <NavLink to={`/sensors/${sensor.id}`} className={styles.details}>
         See details and the last 24 hours
       </NavLink>
@@ -199,10 +201,14 @@ function SensorSummary({
 
 /** Only the categories on the map today, so the legend stays short. */
 function Legend({ sensors }: { sensors: SensorDetail[] }) {
+  // Raw markers are white, so their categories don't count towards the colours shown
   const shown = new Set(
-    sensors.map((sensor) => sensor.latest_reading?.aqi_category),
+    sensors
+      .filter((sensor) => sensor.latest_reading?.source !== "raw")
+      .map((sensor) => sensor.latest_reading?.aqi_category),
   );
-  const outOfService = sensors.some((sensor) => !sensor.latest_reading);
+  const raw = sensors.some((sensor) => sensor.latest_reading?.source === "raw");
+  const noReading = sensors.some((sensor) => !sensor.latest_reading);
   return (
     <ul className={styles.legend} aria-label="Legend">
       {Object.values(CATEGORIES)
@@ -216,10 +222,16 @@ function Legend({ sensors }: { sensors: SensorDetail[] }) {
             {item.label}
           </li>
         ))}
-      {outOfService && (
+      {raw && (
+        <li className={styles.chip}>
+          <span className={`${styles.swatch} ${styles.rawSwatch}`} />
+          Raw reading
+        </li>
+      )}
+      {noReading && (
         <li className={styles.chip}>
           <span className={`${styles.swatch} ${styles.hollow}`} />
-          Out of service
+          No reading
         </li>
       )}
     </ul>

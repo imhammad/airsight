@@ -6,12 +6,18 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Health = Literal["ok", "excluded"]
+Source = Literal["corrected", "raw"]
 
 
 class Reading(BaseModel):
+    pm25: float = Field(description="The PM2.5 to show, in µg/m³: the value source names")
+    source: Source = Field(
+        description="raw where the correction was less accurate than the sensor's own reading "
+        "near this sensor over the last 14 days (ADR 0010); corrected otherwise"
+    )
     pm25_corrected: float = Field(description="Corrected PM2.5 in µg/m³, one decimal")
     pm25_raw: float | None = Field(description="The sensor's own PM2.5 in µg/m³, one decimal")
-    aqi_category: str = Field(description="US EPA category of pm25_corrected (2024 breakpoints)")
+    aqi_category: str = Field(description="US EPA category of pm25 (2024 breakpoints)")
     model_version: str = Field(description="The model that produced pm25_corrected")
     observed_at: datetime = Field(description="Start of the hour, UTC")
     stale: bool = Field(description="True when the reading is more than 6 hours old")

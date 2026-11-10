@@ -25,7 +25,7 @@ export function HistoryChart({
     return { hour, reading: byHour.get(hour) };
   });
 
-  const values = readings.map((reading) => reading.pm25_corrected);
+  const values = readings.map((reading) => reading.pm25);
   const scale = Math.max(MIN_SCALE, ...values);
   const summary =
     values.length === 0
@@ -40,9 +40,9 @@ export function HistoryChart({
             {reading && (
               <span
                 className={styles.bar}
-                title={`${bayAreaHour(hour)}: ${reading.pm25_corrected.toFixed(1)} µg/m³`}
+                title={`${bayAreaHour(hour)}: ${reading.pm25.toFixed(1)} µg/m³`}
                 style={{
-                  height: `${(reading.pm25_corrected / scale) * 100}%`,
+                  height: `${(reading.pm25 / scale) * 100}%`,
                   background: category(reading.aqi_category).colour,
                 }}
               />

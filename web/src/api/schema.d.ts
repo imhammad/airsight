@@ -282,6 +282,17 @@ export interface components {
         /** Reading */
         Reading: {
             /**
+             * Pm25
+             * @description The PM2.5 to show, in µg/m³: the value source names
+             */
+            pm25: number;
+            /**
+             * Source
+             * @description raw where the correction was less accurate than the sensor's own reading near this sensor over the last 14 days (ADR 0010); corrected otherwise
+             * @enum {string}
+             */
+            source: "corrected" | "raw";
+            /**
              * Pm25 Corrected
              * @description Corrected PM2.5 in µg/m³, one decimal
              */
@@ -293,7 +304,7 @@ export interface components {
             pm25_raw: number | null;
             /**
              * Aqi Category
-             * @description US EPA category of pm25_corrected (2024 breakpoints)
+             * @description US EPA category of pm25 (2024 breakpoints)
              */
             aqi_category: string;
             /**

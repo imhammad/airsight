@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { BROKEN, LAKE_MERRITT, OCEANVIEW } from "../test/sensors";
+import { BROKEN, LAKE_MERRITT, OCEANVIEW, RAW } from "../test/sensors";
 import SensorMap from "./SensorMap";
 
 // A stand-in for MapLibre: markers land in the page so the test can find them
@@ -33,7 +33,7 @@ vi.mock("maplibre-gl", () => ({
 }));
 
 const props = {
-  sensors: [LAKE_MERRITT, OCEANVIEW, BROKEN],
+  sensors: [LAKE_MERRITT, OCEANVIEW, RAW, BROKEN],
   selectedId: "pa-1001",
   focus: { lat: 37.8021, lon: -122.2585 },
   you: null,
@@ -48,6 +48,11 @@ test("every sensor is a marker a screen reader can name", () => {
   expect(
     screen.getByRole("button", { name: /^Oceanview Neighborhood Assn, 9\.1/ }),
   ).toHaveAttribute("aria-pressed", "false");
+  expect(
+    screen.getByRole("button", {
+      name: "Raw one, 8.4 µg/m³ raw reading, Good",
+    }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Broken, out of service" }),
   ).toBeInTheDocument();

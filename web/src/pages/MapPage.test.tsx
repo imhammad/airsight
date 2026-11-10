@@ -2,7 +2,13 @@ import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { SensorMapProps } from "../components/SensorMap";
 import { answerWith, renderAt } from "../test/render";
-import { BROKEN, LAKE_MERRITT, OCEANVIEW } from "../test/sensors";
+import {
+  BROKEN,
+  LAKE_MERRITT,
+  NO_READING,
+  OCEANVIEW,
+  RAW,
+} from "../test/sensors";
 
 // MapLibre needs WebGL, which jsdom lacks; its own test covers it. Here each marker is a button.
 vi.mock("../components/SensorMap", () => ({
@@ -67,7 +73,7 @@ test("an out-of-service sensor says why it has no value", async () => {
   fireEvent.click(await screen.findByText("Marker Broken"));
 
   expect(screen.getByText(/found this sensor unreliable/)).toBeInTheDocument();
-  expect(screen.getByText("Out of service")).toBeInTheDocument(); // in the legend
+  expect(screen.getByText("No reading")).toBeInTheDocument(); // in the legend
 });
 
 test("your location picks the sensor nearest to you", async () => {
@@ -176,4 +182,27 @@ test("choosing a sensor clears the location message", async () => {
   fireEvent.click(screen.getByText("Marker Oceanview Neighborhood Assn"));
 
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+test("a sensor showing raw says so, in the panel and the legend", async () => {
+  answerWith(200, { data: [LAKE_MERRITT, RAW], next_cursor: null });
+  renderAt("/");
+
+  fireEvent.click(await screen.findByText("Marker Raw one"));
+
+  expect(screen.getByText("8.4")).toBeInTheDocument();
+  expect(
+    screen.getByText(/This is the sensor's own reading/),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Raw reading")).toBeInTheDocument(); // in the legend
+});
+
+test("a healthy sensor without a reading says what's missing", async () => {
+  answerWith(200, { data: [LAKE_MERRITT, NO_READING], next_cursor: null });
+  renderAt("/");
+
+  fireEvent.click(await screen.findByText("Marker No humidity"));
+
+  expect(screen.getByText(/don't report humidity/)).toBeInTheDocument();
+  expect(screen.queryByText(/unreliable/)).not.toBeInTheDocument();
 });
