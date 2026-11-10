@@ -1,0 +1,147 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fade-in var(--duration) var(--ease) both;
+}
+
+.muted {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+
+.small {
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+
+.lead {
+  color: var(--secondary);
+  font-size: 0.9375rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-large);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bar p {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.ours {
+  font-weight: 600;
+}
+
+.track {
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+/* The bars grow from the left once, so the comparison reads as a comparison */
+.fill {
+  height: 100%;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--secondary) 70%, transparent);
+  transform-origin: left;
+  animation: grow var(--duration) var(--ease) both;
+}
+
+.oursFill {
+  background: var(--accent);
+}
+
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+}
+
+.sectionTitle h2 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.stations {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.station {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.corrected,
+.raw {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.corrected {
+  color: var(--accent);
+}
+
+.raw {
+  color: var(--secondary);
+}
+
+/* The same mark as a raw sensor on the map */
+.rawDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--secondary);
+}
+
+.note {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}

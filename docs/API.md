@@ -96,7 +96,7 @@ per-station errors over 14 days (ADR 0007).
 days (1 to 30). It only counts hours after `trained_before`, so it is always an out-of-sample
 score. For each station it reports the mean absolute error (MAE) of the corrected value, the raw
 sensor and the EPA's US-wide correction, plus the corrected value's bias (positive means it reads
-high).
+high), and `source`: what the sensors next to that station show right now (ADR 0010).
 
 ## Readings
 

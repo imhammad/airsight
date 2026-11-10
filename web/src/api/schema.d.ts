@@ -397,6 +397,12 @@ export interface components {
              * @description Mean of corrected minus official; positive reads high
              */
             bias: number | null;
+            /**
+             * Source
+             * @description What sensors next to this monitor show now (ADR 0010)
+             * @enum {string}
+             */
+            source: "corrected" | "raw";
         };
         /**
          * Problem

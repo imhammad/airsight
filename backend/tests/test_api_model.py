@@ -190,6 +190,7 @@ def test_accuracy_counts_only_hours_the_model_never_trained_on(
             "hours": 72,
             "mae": {"corrected": 3.0, "raw": 4.0, "epa": 1.22},
             "bias": 3.0,
+            "source": "corrected",
         },
         {
             "station": "South monitor",
@@ -197,6 +198,7 @@ def test_accuracy_counts_only_hours_the_model_never_trained_on(
             "hours": 144,
             "mae": {"corrected": 1.0, "raw": 4.0, "epa": 1.22},
             "bias": 0.0,
+            "source": "corrected",
         },
     ]
     # The headline is the mean of the station MAEs, so South's two sensors don't count double
@@ -239,3 +241,27 @@ def test_accuracy_is_503_before_any_promotion(monkeypatch: pytest.MonkeyPatch) -
         .status_code
         == 503
     )
+
+
+def test_accuracy_says_which_stations_show_raw(accuracy_client: TestClient, engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text("""
+                INSERT INTO serving_sources
+                    (sensor_id, station_id, source, hours, model_version, decided_at)
+                SELECT p.lowcost_sensor_id, p.reference_sensor_id, 'raw', 72, :model, :now
+                FROM sensor_pairs p JOIN sensors m ON m.id = p.reference_sensor_id
+                WHERE m.name = 'North monitor'
+            """),
+            {"model": CHAMPION_INFO.model_version, "now": NOW},
+        )
+    try:
+        body = accuracy_client.get("/v1/accuracy", params={"days": 2}).json()
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM serving_sources"))
+
+    assert {s["station"]: s["source"] for s in body["stations"]} == {
+        "North monitor": "raw",
+        "South monitor": "corrected",
+    }
