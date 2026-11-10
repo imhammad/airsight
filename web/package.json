@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint . && npm run api:check",
     "preview": "vite preview",
+    "preview:mock": "MOCK_API=1 vite preview",
     "test": "vitest run",
+    "e2e": "playwright test",
+    "lighthouse": "npx --yes @lhci/cli@0.15.1 autorun",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "api:types": "openapi-typescript ../docs/openapi.json -o src/api/schema.d.ts",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",

@@ -6,6 +6,30 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-10: Lighthouse SEO scored 82 on every page
+
+- **Symptom:** the first `npm run lighthouse` failed: SEO 0.82 on all four pages.
+- **Cause:** `index.html` had no meta description, and `/robots.txt` returned the app's HTML,
+  because a single-page app answers every unknown path with `index.html`.
+- **Fix:** a description and theme-color in `index.html`, and a real `web/public/robots.txt`.
+- **Lesson:** files that crawlers ask for must exist for real; the app's fallback hides their absence.
+
+### 2026-11-10: The accuracy page shifted as it loaded
+
+- **Symptom:** Lighthouse measured a layout shift of 0.135 on `/accuracy` (good is 0.1 or less).
+- **Cause:** the note under the scores rendered right under the short "Loading" line, then jumped
+  down when the scores arrived.
+- **Fix:** the note renders once the request has finished.
+- **Lesson:** content below something that loads should wait for it, or have its space reserved.
+
+### 2026-11-10: The e2e test couldn't tap a sensor on a phone
+
+- **Symptom:** "tap a sensor on the map" passed on the laptop but timed out on the phone.
+- **Cause:** the sensor it tapped, 7.5 km north of downtown Oakland, sat under the header on a
+  phone's narrower map. Playwright only clicks what a person could click, so it waited.
+- **Fix:** the stand-in API has a sensor near downtown ("West Oakland") for that test.
+- **Lesson:** a browser test that taps must pick something visible at that screen size.
+
 ### 2026-11-09: MapLibre's worker failed to load under Vite
 
 **Problem:** With MapLibre GL 6 the map stayed blank and the console said `Worker failed to load. Check that the worker URL is correct.`

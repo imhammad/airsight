@@ -83,3 +83,34 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies exactly as locked
+        run: npm ci
+      - name: Install Chromium for Playwright and Lighthouse
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests on a phone and a laptop (builds the app)
+        run: npm run e2e
+      - name: Lighthouse on the same build
+        run: npm run lighthouse
+      - name: Keep the reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-reports
+          path: |
+            web/playwright-report
+            web/.lighthouseci
+          retention-days: 14
