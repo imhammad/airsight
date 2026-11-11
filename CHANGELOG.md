@@ -6,6 +6,31 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.5.0 - 2026-11-11
+
+Web app: a phone-first map of corrected readings, a page per sensor, the live accuracy against
+official monitors and the method in plain words, with browser tests and Lighthouse in CI.
+
+### Added
+
+- Web design decision: who it is for, the layout, AQI colours, type and motion (ADR 0009) (#95).
+- App shell with routing, data fetching and an API client typed from the OpenAPI contract (#96).
+- Map of every sensor coloured by AQI category, with the nearest sensor's reading and
+  "Use my location"; `GET /v1/readings/latest` (#97).
+- Sensor page with the reading, the sensor's own value, the model and the last 24 hours (#98).
+- Accuracy page with the live 14-day error against raw and EPA, per monitor, and an About page
+  explaining the data, the model, how it is tested and its limits (#102).
+- Browser tests on a phone and a laptop, and a Lighthouse gate in CI: accessibility, best
+  practices and SEO must score 90 or more (#103).
+
+### Changed
+
+- Near monitors where the correction has been less accurate than the raw sensor over the last 14
+  days, sensors serve their raw reading (ADR 0010). Readings gain `pm25` (the value to show) and
+  `source`; `aqi_category` now follows `pm25`, the one exception to ADR 0008's additive-only rule,
+  recorded in `docs/API.md` (#101).
+- Each station in `/v1/accuracy` says whether its sensors show corrected or raw readings (#102).
+
 ## 0.4.0 - 2026-11-09
 
 Public API: corrected readings for every served sensor, which model made them, and the model's

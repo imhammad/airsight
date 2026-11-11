@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.4.0` (public API). Follow progress on the
+> **Status:** early development, `v0.5.0` (web app). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -53,6 +53,22 @@ Better than the EPA correction at 7 of 10 monitors. No claim yet above 35.4 µg/
 smoke days in the data. Details and limitations are in the
 [model card](docs/model-cards/airsight-correction-v1.md).
 
+## Web app
+
+A calm, phone-first site on top of the API: a map of every sensor coloured by air quality, a
+page per sensor with its last 24 hours, the live accuracy against official monitors, and the
+method in plain words. Where the correction has been less accurate than the sensor's own reading
+near a monitor, the map shows the raw reading and says so (ADR 0010).
+
+With the stack running:
+
+```
+cd web && npm ci && npm run dev
+```
+
+Then open http://localhost:5173. The browser tests and the Lighthouse audit run in CI on every
+pull request; to run them locally, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## API
 
 A read-only public API serves the corrected readings, says which model produced each value, and
@@ -96,7 +112,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.2.0 | Data ingestion from PurpleAir, AirNow and Open-Meteo | ✅ |
 | v0.3.0 | Calibration model that beats the EPA correction | ✅ |
 | v0.4.0 | Public API serving corrected readings | ✅ |
-| v0.5.0 | Web app: map, location detail, accuracy page | ⏳ |
+| v0.5.0 | Web app: map, location detail, accuracy page | ✅ |
 | v0.6.0 | 24-hour forecast with uncertainty | ⏳ |
 | v0.7.0 | Observability and live model monitoring | ⏳ |
 | v1.0.0 | Public launch | ⏳ |
