@@ -9,7 +9,7 @@ import pytest
 
 from airsight.ml.forecast_evaluation import Persistence, backtest, split_final_test
 from airsight.ml.forecast_features import FORECAST_FEATURES, forecast_rows
-from airsight.ml.forecast_train import QuantileLightGbm, report_metrics, train
+from airsight.ml.forecast_train import QuantileLightGbm, report_metrics, train, widening
 
 START = datetime(2026, 6, 1, tzinfo=UTC)
 DAYS = 50
@@ -68,6 +68,30 @@ def test_quantile_models_beat_persistence_and_give_a_range() -> None:
     assert 0.6 < model.coverage < 0.95  # p10 to p90 should hold about 80% of hours
 
 
+def test_widening_puts_80_percent_of_hours_inside_the_range() -> None:
+    official = pd.Series(np.arange(100, dtype=float))  # 0 to 99, all at 1 hour ahead
+    narrow = pd.DataFrame({"p10": 45.0, "p50": 50.0, "p90": 55.0}, index=official.index)
+
+    widen = widening(narrow, official, pd.Series(1, index=official.index))
+
+    inside = official.between(narrow["p10"] - widen[1], narrow["p90"] + widen[1])
+    assert inside.mean() == pytest.approx(0.8, abs=0.02)
+    wide = pd.DataFrame({"p10": -100.0, "p50": 50.0, "p90": 200.0}, index=official.index)
+    assert widening(wide, official, pd.Series(1, index=official.index))[1] < 0  # narrows
+
+
+def test_calibrated_range_never_goes_below_zero() -> None:
+    development, _ = split_final_test(synthetic_rows(), FINAL_TEST_START)
+    model = QuantileLightGbm()
+    model.fit(development)
+
+    predicted = model.predict(development.head(500))
+
+    assert set(model.widen) == set(range(1, 25))
+    assert (predicted["p10"] >= 0).all()
+    assert (predicted["p10"] <= predicted["p50"]).all()
+
+
 def test_metric_names_are_mlflow_safe() -> None:
     development, _ = split_final_test(synthetic_rows(), FINAL_TEST_START)
     report = backtest(Persistence, development, FINAL_TEST_START)
@@ -114,3 +138,5 @@ def test_training_run_is_tracked(local_mlflow: str, tmp_path: Path) -> None:
     for name in ("p10", "p50", "p90"):
         loaded = mlflow.lightgbm.load_model(run.data.tags[f"model_uri.{name}"])
         assert len(loaded.predict(frame[FORECAST_FEATURES].head(3))) == 3
+    widen = mlflow.artifacts.load_dict(f"runs:/{run_id}/widening.json")
+    assert set(widen) == {str(h) for h in range(1, 25)}
