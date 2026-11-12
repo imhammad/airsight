@@ -2,6 +2,7 @@
 
 import math
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
@@ -117,3 +118,12 @@ def test_target_hours_use_california_time() -> None:
     row = rows[(rows["issue_time"] == hour(2)) & (rows["horizon"] == 1)].iloc[0]
     assert row["local_hour"] == 19  # 03:00 UTC on 1 March is 19:00 the day before in PST
     assert row["day_of_week"] == 5  # Saturday
+
+
+def test_start_and_end_may_use_different_utc_timezone_objects() -> None:
+    # The database returns "Etc/UTC"; datetime.UTC is "UTC" (the bug the first real run hit)
+    start = START.astimezone(ZoneInfo("Etc/UTC"))
+
+    rows = forecast_rows(*inputs(), start, END)
+
+    assert len(set(rows["issue_time"])) == DAYS * 8

@@ -6,6 +6,18 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-12: The first real forecast dataset build failed on two kinds of UTC
+
+- **Symptom:** `python -m airsight.ml.forecast_dataset` stopped with `TypeError: Start and end
+  cannot both be tz-aware with different timezones`, though both times were UTC.
+- **Cause:** the start came from the database, which returns times in `Etc/UTC`; the end came
+  from Python's `datetime.UTC`, named `UTC`. They are the same zone, but `pd.date_range` refuses
+  two different timezone objects. Every test built both times with `datetime.UTC`, so none hit it.
+- **Fix:** `forecast_rows` converts start and end to pandas' `UTC` before building the hours, and
+  a test now passes an `Etc/UTC` start.
+- **Lesson:** a test only proves what its inputs look like. When a value comes from the database
+  in real runs, the test should use the same type the database returns.
+
 ### 2026-11-12: The architecture document was in the repo twice
 
 - **Symptom:** docs/ARCHITECTURE.md had 415 lines: the whole document, a line reading
