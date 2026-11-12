@@ -8,14 +8,12 @@ from datetime import UTC, datetime
 
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 
 from airsight.api.schemas import FinalTest, ModelInfo
 from airsight.core.config import get_settings
-from airsight.ml.registry import CHAMPION, MODEL_NAME
+from airsight.ml.registry import CHAMPION, MODEL_NAME, NOT_PROMOTED
 
 MODEL_CARDS = "https://github.com/imhammad/airsight/blob/main/docs/model-cards"
-NOT_PROMOTED = {ErrorCode.Name(RESOURCE_DOES_NOT_EXIST), ErrorCode.Name(INVALID_PARAMETER_VALUE)}
 
 
 def _final_test(metrics: dict[str, float]) -> FinalTest | None:

@@ -13,7 +13,7 @@ import json
 import math
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
@@ -27,6 +27,8 @@ BANDS = {"good": (0.0, 9.0), "moderate": (9.0, 35.4), "high": (35.4, math.inf)}
 # ADR 0007: fewer test hours than this and we make no claim about a band
 MIN_BAND_HOURS = 100
 REPORTS_DIR = Path("../data/reports")  # git-ignored, like the datasets
+# ADR 0011: the 14 days before the final test choose between retraining candidates
+VALIDATION_DAYS = 14
 
 
 class Model(Protocol):
@@ -192,6 +194,25 @@ def evaluate(dataset: Path, models: list[Callable[[], Model]], final: bool = Fal
         predictions = leave_one_station_out(make_model, development, test)
         reports.append(score(make_model().name, predictions))
     return reports
+
+
+def evaluate_validation(dataset: Path, models: list[Callable[[], Model]]) -> list[Report]:
+    """Score models on the validation period, fitted only on the hours before it (ADR 0011).
+
+    Still leave one station out, so a candidate is judged on monitors and days it never saw.
+    The final test period is not read at all.
+    """
+    info = json.loads(dataset.with_suffix(".json").read_text())
+    final_test_start = datetime.fromisoformat(info["final_test_start"])
+    development, _ = split_final_test(pd.read_parquet(dataset), final_test_start)
+    # The same split by time, one step earlier
+    train, validation = split_final_test(
+        development, final_test_start - timedelta(days=VALIDATION_DAYS)
+    )
+    return [
+        score(make_model().name, leave_one_station_out(make_model, train, validation))
+        for make_model in models
+    ]
 
 
 def main() -> None:

@@ -9,7 +9,7 @@ import pytest
 
 from airsight.ml.evaluation import RawBaseline, leave_one_station_out, score
 from airsight.ml.features import FEATURE_COLUMNS
-from airsight.ml.train import LightGbmModel, report_metrics, train
+from airsight.ml.train import CANDIDATES, LightGbmModel, report_metrics, train, training_rows
 
 START = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -46,6 +46,24 @@ def test_model_learns_what_raw_gets_wrong() -> None:
     raw = score("raw", leave_one_station_out(RawBaseline, frame, frame))
 
     assert model.headline_mae < raw.headline_mae / 3
+
+
+def test_candidates_learn_from_different_rows() -> None:
+    frame = synthetic_pairs(90 * 24)
+    newest = frame["time"].max()
+
+    every_row, no_weights = training_rows(frame, CANDIDATES["all-data"])
+    recent, _ = training_rows(frame, CANDIDATES["last-60-days"])
+    weighted, weights = training_rows(frame, CANDIDATES["recent-weighted"])
+
+    assert len(every_row) == len(frame)
+    assert no_weights is None
+    assert recent["time"].min() > newest - timedelta(days=60)
+    assert len(weighted) == len(frame)
+    assert weights is not None
+    assert weights[weighted["time"] == newest].tolist() == [1.0, 1.0, 1.0]
+    month_old = weights[weighted["time"] == newest - timedelta(days=30)]
+    assert month_old.tolist() == pytest.approx([0.5, 0.5, 0.5])  # halves every 30 days
 
 
 def test_metric_names_are_mlflow_safe() -> None:
@@ -89,6 +107,9 @@ def test_training_run_is_tracked(local_mlflow: str, tmp_path: Path) -> None:
     run = mlflow.get_run(run_id)
     assert run.data.tags["dataset"] == "test"
     assert run.data.tags["ships"] == "True"
+    # ADR 0011: all three candidates were scored on validation, and the best one was kept
+    validation = {name: run.data.metrics[f"validation.{name}.headline_mae"] for name in CANDIDATES}
+    assert validation[run.data.tags["candidate"]] == min(validation.values())
     assert run.data.metrics["lightgbm.headline_mae"] < run.data.metrics["epa.headline_mae"]
     loaded = mlflow.lightgbm.load_model(f"runs:/{run_id}/model")
     assert len(loaded.predict(frame[FEATURE_COLUMNS].head(3))) == 3

@@ -11,6 +11,7 @@ from airsight.ml.evaluation import (
     RawBaseline,
     Report,
     evaluate,
+    evaluate_validation,
     leave_one_station_out,
     score,
     ship_check,
@@ -142,3 +143,30 @@ def test_evaluate_scores_baselines_on_a_dataset_file(tmp_path: Path) -> None:
     assert development[0].overall.hours == 72
     assert development[0].headline_mae == pytest.approx(2.5)  # (2 + 3) / 2
     assert final[0].overall.hours == 24
+
+
+class NewestHourModel:
+    """Remembers the newest hour it was trained on, and predicts zero."""
+
+    name = "newest"
+    newest: list[pd.Timestamp] = []
+
+    def fit(self, train: pd.DataFrame) -> None:
+        NewestHourModel.newest.append(train["time"].max())
+
+    def predict(self, frame: pd.DataFrame) -> pd.Series:
+        return pd.Series(0.0, index=frame.index)
+
+
+def test_validation_is_the_14_days_before_the_final_test(tmp_path: Path) -> None:
+    hours = 30 * 24
+    frame = pd.concat([pairs("A", hours, 10, 8), pairs("B", hours, 12, 9)])
+    path = tmp_path / "pairs-test.parquet"
+    frame.to_parquet(path, index=False)
+    final_start = START + timedelta(days=28)
+    path.with_suffix(".json").write_text(json.dumps({"final_test_start": final_start.isoformat()}))
+
+    (report,) = evaluate_validation(path, [NewestHourModel])
+
+    assert report.overall.hours == 2 * 14 * 24  # days 14 to 27 of both stations
+    assert max(NewestHourModel.newest) < START + timedelta(days=14)  # trained before them

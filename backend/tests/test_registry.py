@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from airsight.ml import registry
 from airsight.ml.features import FEATURE_COLUMNS, INPUT_COLUMNS, add_features
 from airsight.ml.predict import correct
 from airsight.ml.registry import (
@@ -21,15 +22,27 @@ from airsight.ml.train import train
 START = datetime(2026, 9, 1, tzinfo=UTC)
 
 
-def write_dataset(directory: Path, name: str, raw_is_perfect: bool = False) -> Path:
-    """Four stations whose sensors read high when humid; or, if raw_is_perfect, never wrong."""
+def write_dataset(
+    directory: Path,
+    name: str,
+    raw_is_perfect: bool = False,
+    hours: int = 700,
+    final_test_hour: int = 500,
+    drift_from: int | None = None,
+) -> Path:
+    """Four stations whose sensors read high when humid; or, if raw_is_perfect, never wrong.
+
+    From hour drift_from on, the sensors read even higher, as if their air or optics changed.
+    """
     rng = np.random.default_rng(1)
     frames = []
     for station in ["A", "B", "C", "D"]:
-        hours = 700
         official = rng.gamma(2.0, 6.0, hours)
         humidity = rng.uniform(30, 95, hours)
-        raw = official if raw_is_perfect else official * (1.4 + (humidity - 30) / 100)
+        factor = 1.4 + (humidity - 30) / 100
+        if drift_from is not None:
+            factor = np.where(np.arange(hours) >= drift_from, factor + 0.8, factor)
+        raw = official if raw_is_perfect else official * factor
         frames.append(
             pd.DataFrame(
                 {
@@ -54,7 +67,7 @@ def write_dataset(directory: Path, name: str, raw_is_perfect: bool = False) -> P
         "content_hash": name,
         "rows": len(frame),
         "start": START.isoformat(),
-        "final_test_start": (START + timedelta(hours=500)).isoformat(),
+        "final_test_start": (START + timedelta(hours=final_test_hour)).isoformat(),
     }
     path.with_suffix(".json").write_text(json.dumps(info))
     return path
@@ -90,6 +103,45 @@ def test_failing_model_is_not_registered(local_mlflow: None, tmp_path: Path) -> 
 
     assert mlflow.MlflowClient().search_registered_models() == []
     assert mlflow.get_run(run_id).data.tags["final_ships"] == "False"
+
+
+def test_the_final_test_must_be_new_to_the_champion(local_mlflow: None, tmp_path: Path) -> None:
+    run_id = train(write_dataset(tmp_path, "good"))
+    promote(run_id, datasets_dir=tmp_path)
+
+    # The same 14 days again: the champion was already tested on them
+    with pytest.raises(PromotionRefusedError, match="build a dataset that ends"):
+        promote(run_id, datasets_dir=tmp_path)
+
+    champion = mlflow.MlflowClient().get_model_version_by_alias(MODEL_NAME, CHAMPION)
+    assert int(champion.version) == 1
+
+
+def test_a_better_model_replaces_the_champion(local_mlflow: None, tmp_path: Path) -> None:
+    promote(train(write_dataset(tmp_path, "good")), datasets_dir=tmp_path)
+    # The sensors drift after the champion's training data ends, at hour 500
+    later = write_dataset(tmp_path, "later", hours=1300, final_test_hour=900, drift_from=500)
+    run_id = train(later)
+
+    version = promote(run_id, datasets_dir=tmp_path)
+
+    assert version == 2
+    metrics = mlflow.get_run(run_id).data.metrics
+    assert metrics["final.candidate.headline_mae"] < metrics["final.champion.headline_mae"]
+
+
+def test_a_model_no_better_than_the_champion_is_refused(
+    local_mlflow: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_id = train(write_dataset(tmp_path, "good"))
+    itself = mlflow.lightgbm.load_model(f"runs:/{run_id}/model")
+    # The champion is this very model, trained long ago: an equal score is not an improvement
+    monkeypatch.setattr(registry, "current_champion", lambda: (itself, START - timedelta(days=60)))
+
+    with pytest.raises(PromotionRefusedError, match="not below the champion's"):
+        promote(run_id, datasets_dir=tmp_path)
+
+    assert mlflow.MlflowClient().search_registered_models() == []
 
 
 def test_champion_signature_matches_the_features(local_mlflow: None, tmp_path: Path) -> None:
