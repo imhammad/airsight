@@ -88,7 +88,15 @@ def forecast_rows(
     The label is NaN where the monitor has no reading for the target hour, such as every
     target after `end`; training drops those rows, serving has no label at all.
     """
-    index = pd.date_range(start, end, freq="h", inclusive="left", name="time")
+    # The database returns times in "Etc/UTC" and datetime.UTC is "UTC": the same zone, but
+    # pandas won't build a range between two different timezone objects, so use one for both
+    index = pd.date_range(
+        pd.Timestamp(start).tz_convert("UTC"),
+        pd.Timestamp(end).tz_convert("UTC"),
+        freq="h",
+        inclusive="left",
+        name="time",
+    )
     by_station = {
         station: rows.set_index("time")["official"]
         for station, rows in official.groupby("station_id")
