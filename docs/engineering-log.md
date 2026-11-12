@@ -6,6 +6,17 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-12: A sensor we thought had disagreeing channels had a dead one
+
+- **Symptom:** 310 Carolina St (PurpleAir 73109) never got a corrected reading, and #99 said its
+  channels disagreed. Yet its 30-day disagree share was 0% and its health was `ok`.
+- **Cause:** channel A had sent nothing for at least 21 days. Hours with a missing channel are
+  flagged `MISSING_CHANNEL`, which the correction skips, but no health rule looked at that flag.
+  We had read "every hour flagged" as disagreement without checking which flag.
+- **Fix:** exclude a sensor when a channel is missing in more than 50% of hours, and, as #99
+  asked, when its channels disagree in more than 30% (healthy sensors: at most 4.2%).
+- **Lesson:** check which flag fires before naming the cause. A bit field hides the difference.
+
 ### 2026-11-10: Lighthouse SEO scored 82 on every page
 
 - **Symptom:** the first `npm run lighthouse` failed: SEO 0.82 on all four pages.

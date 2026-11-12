@@ -105,6 +105,10 @@ Errors are stable month to month, so there is no obvious seasonal drift in this 
 5. Always report results by pollution level, not only overall, so a model can't hide a bad
    result on polluted days behind many clean ones.
 6. Until we have smoke data, the forecast widens its uncertainty above 35 µg/m³.
+7. Added 2026-11-12 (#99): also exclude a sensor when a channel is missing in more than 50% of
+   hours (one channel can't be cross-checked), or when the channels disagree in more than 30%.
+   On 30 days of live data, healthy sensors disagreed in at most 4.2% of hours and broken ones
+   in 43% or more.
 
 ## Limits
 
