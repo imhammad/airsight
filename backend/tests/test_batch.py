@@ -26,6 +26,9 @@ END = START + timedelta(hours=24)
 HOUR = timedelta(hours=1)
 CLEAN = Sensor(900401, "Clean", 36.5030, -121.2000, START)
 EXCLUDED = Sensor(900402, "Excluded", 36.5000, -121.2040, START)
+# Reports no humidity, like Curtis St and GWR Shields Reid (#100), two days after the others
+NO_HUMIDITY = Sensor(900403, "No humidity", 36.4970, -121.2000, START)
+LATER = START + timedelta(days=2)
 
 
 @pytest.fixture(scope="module")
@@ -35,6 +38,30 @@ def booster() -> lgb.Booster:
     frame = pd.DataFrame({column: rng.uniform(0, 50, 2000) for column in FEATURE_COLUMNS})
     data = lgb.Dataset(frame, label=0.6 * frame["raw"])
     return lgb.train({"objective": "l1", "verbose": -1, "seed": 1}, data, num_boost_round=50)
+
+
+@pytest.fixture(scope="module")
+def v1_booster() -> lgb.Booster:
+    """A model trained with v1's features, which include the sensor's own humidity."""
+    columns = [*FEATURE_COLUMNS[:2], "sensor_humidity", *FEATURE_COLUMNS[2:]]
+    rng = np.random.default_rng(0)
+    frame = pd.DataFrame({column: rng.uniform(0, 50, 2000) for column in columns})
+    data = lgb.Dataset(frame, label=0.6 * frame["raw"])
+    return lgb.train({"objective": "l1", "verbose": -1, "seed": 1}, data, num_boost_round=50)
+
+
+@pytest.fixture(scope="module")
+def no_humidity(engine: Engine) -> int:
+    """Six clean hours, with weather, from a sensor that reports no humidity."""
+    hours = [LATER + h * HOUR for h in range(6)]
+    weather = [WeatherHour(t, 12.0, 75.0, 4.0, 300.0, 0.0) for t in hours]
+    with engine.begin() as connection:
+        ids = store.upsert_lowcost_sensors(connection, [NO_HUMIDITY])
+        cell = weather_cell(NO_HUMIDITY.latitude, NO_HUMIDITY.longitude)
+        store.upsert_weather(connection, cell, weather)
+        readings = [LowcostReading(NO_HUMIDITY.sensor_index, t, 10.0, 11.0, None) for t in hours]
+        store.upsert_lowcost_readings(connection, readings, ids)
+    return ids[NO_HUMIDITY.sensor_index]
 
 
 @pytest.fixture(scope="module")
@@ -109,6 +136,25 @@ def test_stored_values_are_the_serving_predictions(
 
     first = stored(engine, one_day[CLEAN.sensor_index]).iloc[0]
     assert first["pm25"] == pytest.approx(expected, rel=1e-6)
+
+
+def test_sensors_without_humidity_are_corrected(
+    engine: Engine, no_humidity: int, booster: lgb.Booster
+) -> None:
+    count = batch.correct_window(engine, booster, "airsight-correction/2", LATER, LATER + 6 * HOUR)
+
+    assert count == 6
+    assert len(stored(engine, no_humidity)) == 6
+
+
+def test_a_model_that_needs_sensor_humidity_skips_them(
+    engine: Engine, no_humidity: int, v1_booster: lgb.Booster
+) -> None:
+    count = batch.correct_window(
+        engine, v1_booster, "airsight-correction/1", LATER, LATER + 6 * HOUR
+    )
+
+    assert count == 0
 
 
 def test_recomputing_replaces_values_and_records_the_new_model(

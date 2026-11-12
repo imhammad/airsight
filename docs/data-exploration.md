@@ -109,6 +109,10 @@ Errors are stable month to month, so there is no obvious seasonal drift in this 
    hours (one channel can't be cross-checked), or when the channels disagree in more than 30%.
    On 30 days of live data, healthy sensors disagreed in at most 4.2% of hours and broken ones
    in 43% or more.
+8. Added 2026-11-12 (#100): the model no longer uses the sensor's own humidity. Two sensors
+   don't report it, and on the development period (leave-one-station-out) dropping it moved
+   headline MAE from 2.54 to 2.55 and moderate-hours MAE from 4.51 to 4.55, inside the limits
+   set before the run (0.05 and 0.10). Outdoor humidity from Open-Meteo stays.
 
 ## Limits
 

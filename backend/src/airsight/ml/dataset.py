@@ -55,7 +55,7 @@ PAIRS_SQL = text("""
     LEFT JOIN weather w ON w.cell_id = s.weather_cell_id AND w.time = l.time
     WHERE l.time >= :start AND l.time < :end
       AND l.flags = 0
-      AND l.humidity IS NOT NULL
+      AND l.humidity IS NOT NULL  -- needed by the EPA baseline
     ORDER BY l.sensor_id, l.time
 """)
 

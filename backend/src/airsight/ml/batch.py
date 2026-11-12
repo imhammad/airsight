@@ -50,7 +50,6 @@ INPUTS_SQL = text("""
     LEFT JOIN sensor_health h ON h.sensor_id = l.sensor_id
     WHERE l.time >= :start AND l.time < :end
       AND l.flags = 0
-      AND l.humidity IS NOT NULL
       AND (h.status IS NULL OR h.status <> 'excluded')
     ORDER BY l.sensor_id, l.time
 """)
@@ -62,6 +61,8 @@ def correct_window(
     """Correct every clean sensor-hour in [start, end) and upsert it. Returns the row count."""
     with engine.connect() as connection:
         rows = pd.read_sql(INPUTS_SQL, connection, params={"start": start, "end": end})
+    if "sensor_humidity" in booster.feature_name():  # v1: no humidity, no correction
+        rows = rows[rows["humidity"].notna()]
     if rows.empty:
         return 0
     rows["pm25"] = correct(booster, rows[INPUT_COLUMNS]).clip(lower=0.0)  # no negative PM2.5

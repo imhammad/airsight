@@ -30,7 +30,6 @@ ROWS = pd.DataFrame(
 GOLDEN = {
     "raw": [11.0, 6.0, 0.0],
     "channel_difference": [2.0, 6.0, 0.0],
-    "sensor_humidity": [55.0, 80.0, 40.0],
     "temperature": [12.5, 11.0, math.nan],
     "relative_humidity": [70.0, 85.0, 60.0],
     "wind_speed": [3.0, 0.0, 7.5],
@@ -49,6 +48,8 @@ def test_feature_values_are_unchanged() -> None:
         pd.DataFrame(GOLDEN),
         check_dtype=False,
     )
+    # Not a model feature since #100, but the EPA baseline still reads it
+    assert features["sensor_humidity"].tolist() == [55.0, 80.0, 40.0]
 
 
 def test_input_rows_are_not_modified() -> None:
