@@ -4,10 +4,11 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Connection, func, select, text
+from sqlalchemy import Connection, Table, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from airsight.core.tables import (
+    day_ahead_weather,
     ingestion_runs,
     lowcost_readings,
     reference_readings,
@@ -137,6 +138,20 @@ def upsert_lowcost_readings(
 
 
 def upsert_weather(connection: Connection, cell_id: str, hours: Sequence[WeatherHour]) -> int:
+    """Observed weather."""
+    return _upsert_weather_hours(connection, weather, cell_id, hours)
+
+
+def upsert_day_ahead_weather(
+    connection: Connection, cell_id: str, hours: Sequence[WeatherHour]
+) -> int:
+    """Weather as forecast 24 hours before each hour."""
+    return _upsert_weather_hours(connection, day_ahead_weather, cell_id, hours)
+
+
+def _upsert_weather_hours(
+    connection: Connection, table: Table, cell_id: str, hours: Sequence[WeatherHour]
+) -> int:
     rows = [
         {
             "cell_id": cell_id,
@@ -151,12 +166,12 @@ def upsert_weather(connection: Connection, cell_id: str, hours: Sequence[Weather
     ]
     columns = ["temperature", "relative_humidity", "wind_speed", "wind_direction", "precipitation"]
     for batch in _batches(rows):
-        statement = insert(weather).values(list(batch))
+        statement = insert(table).values(list(batch))
         connection.execute(
             statement.on_conflict_do_update(
                 index_elements=["cell_id", "time"],
                 # A missing new value never erases a value we already have
-                set_={c: func.coalesce(statement.excluded[c], weather.c[c]) for c in columns},
+                set_={c: func.coalesce(statement.excluded[c], table.c[c]) for c in columns},
             )
         )
     return len(rows)

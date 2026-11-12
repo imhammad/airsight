@@ -17,6 +17,14 @@ def test_live_ingestion_is_scheduled_every_three_hours() -> None:
     assert entry["schedule"] == crontab(minute="15", hour="0,3,6,9,12,15,18,21")
 
 
+def test_day_ahead_weather_is_loaded_daily() -> None:
+    entry = app.conf.beat_schedule["day-ahead-weather"]
+
+    assert entry["task"] == "airsight.load_day_ahead_weather"
+    assert entry["schedule"] == crontab(minute="45", hour="4")
+    assert tasks.load_day_ahead_weather.name == "airsight.load_day_ahead_weather"
+
+
 def test_the_scheduled_task_is_registered() -> None:
     assert "airsight.ingest_live" in app.tasks
 

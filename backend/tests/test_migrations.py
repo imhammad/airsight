@@ -41,6 +41,7 @@ def test_time_series_tables_are_hypertables(engine: Engine) -> None:
             "reference_readings",
             "weather",
             "corrected_readings",
+            "day_ahead_weather",
         }
 
 

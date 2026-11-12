@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -82,3 +82,20 @@ def test_parses_recorded_response() -> None:
         assert all(
             0 <= h.relative_humidity <= 100 for h in hours if h.relative_humidity is not None
         )
+
+
+def test_day_ahead_forecasts_are_read_like_observed_weather() -> None:
+    suffixed = {
+        key if key == "time" else f"{key}_previous_day1": values
+        for key, values in location([1786060800], [75.0])["hourly"].items()
+    }
+    client, requests = client_serving({"hourly": suffixed})
+
+    result = client.day_ahead([SAN_FRANCISCO], date(2026, 8, 7), date(2026, 8, 8))
+
+    assert result[SAN_FRANCISCO][0].time == datetime(2026, 8, 7, tzinfo=UTC)
+    assert result[SAN_FRANCISCO][0].relative_humidity == 75.0
+    url = requests[0].url
+    assert url.host == "previous-runs-api.open-meteo.com"
+    assert "wind_speed_10m_previous_day1" in url.params["hourly"].split(",")
+    assert (url.params["start_date"], url.params["end_date"]) == ("2026-08-07", "2026-08-08")
