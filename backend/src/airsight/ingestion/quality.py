@@ -33,6 +33,10 @@ class Flag(IntFlag):
 WINDOW = timedelta(days=30)
 # More impossible hours than this means broken hardware, not occasional spikes
 MAX_IMPOSSIBLE_SHARE = 0.10
+# A channel missing most hours has stopped, so the other can't be cross-checked (73109)
+MAX_MISSING_SHARE = 0.50
+# Healthy sensors disagree in at most about 5% of hours, broken ones in 43% or more (#99)
+MAX_DISAGREE_SHARE = 0.30
 # A sensor whose clean readings sit below NEAR_ZERO while its monitor's median is at least
 # REFERENCE_MIN is dead but passes every per-hour check (the San Jose Knox Ave sensor)
 NEAR_ZERO = 1.0
@@ -57,6 +61,7 @@ SUMMARY_SQL = """
         SELECT
             sensor_id,
             count(*) AS hours,
+            avg(((flags & 1) <> 0)::int)::real AS missing_share,
             avg(((flags & 2) <> 0)::int)::real AS impossible_share,
             avg(((flags & 8) <> 0)::int)::real AS disagree_share,
             (percentile_cont(0.5) WITHIN GROUP (ORDER BY raw)
@@ -71,6 +76,8 @@ SUMMARY_SQL = """
 # The exclusion rule, written once and used by the health table and the training dataset
 EXCLUDED_WHEN = """
     impossible_share > :max_impossible
+    OR missing_share > :max_missing
+    OR disagree_share > :max_disagree
     OR (median_pm25 < :near_zero AND median_reference >= :reference_min)
 """
 
@@ -90,6 +97,12 @@ HEALTH_SQL = text(
         CASE
             WHEN impossible_share > :max_impossible THEN
                 'impossible values in ' || round((impossible_share * 100)::numeric)
+                || '% of hours'
+            WHEN missing_share > :max_missing THEN
+                'a channel missing in ' || round((missing_share * 100)::numeric)
+                || '% of hours'
+            WHEN disagree_share > :max_disagree THEN
+                'channels disagree in ' || round((disagree_share * 100)::numeric)
                 || '% of hours'
             WHEN median_pm25 < :near_zero AND median_reference >= :reference_min
                 THEN 'reads near zero while its monitor does not'
@@ -117,6 +130,8 @@ def _rule_parameters(start: datetime, end: datetime) -> dict[str, object]:
         "start": start,
         "end": end,
         "max_impossible": MAX_IMPOSSIBLE_SHARE,
+        "max_missing": MAX_MISSING_SHARE,
+        "max_disagree": MAX_DISAGREE_SHARE,
         "near_zero": NEAR_ZERO,
         "reference_min": REFERENCE_MIN,
     }

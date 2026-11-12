@@ -17,8 +17,11 @@ SEEN = datetime(2026, 8, 1, tzinfo=UTC)
 HEALTHY = Sensor(900201, "Healthy", 37.5030, -121.7000, SEEN)
 BROKEN = Sensor(900202, "Broken", 37.5000, -121.7040, SEEN)
 DEAD = Sensor(900203, "Dead", 37.4970, -121.7000, SEEN)
+ONE_CHANNEL = Sensor(900204, "One channel", 37.5000, -121.6960, SEEN)
+SPLIT = Sensor(900205, "Split", 37.5040, -121.7000, SEEN)
 NOW = datetime(2026, 9, 1, tzinfo=UTC)
 HOUR = timedelta(hours=1)
+SENSORS = (HEALTHY, BROKEN, DEAD, ONE_CHANNEL, SPLIT)
 
 
 @pytest.mark.parametrize(
@@ -52,25 +55,29 @@ def test_flags_are_computed_by_the_database(
     assert Flag(flags) == expected
 
 
-def lowcost_value(sensor: Sensor, hour: int) -> tuple[float, float]:
+def lowcost_value(sensor: Sensor, hour: int) -> tuple[float, float | None]:
     if sensor is BROKEN and hour % 5 == 0:  # 20% of hours
         return 5000.0, 0.0
     if sensor is DEAD:
         return 0.1, 0.1
+    if sensor is ONE_CHANNEL:  # channel B has stopped
+        return 8.0, None
+    if sensor is SPLIT and hour % 5 < 2:  # 40% of hours, 18 apart
+        return 2.0, 20.0
     return 8.0, 8.4
 
 
 @pytest.fixture(scope="module")
 def thirty_days(engine: Engine) -> None:
-    """One monitor reading 8 µg/m³ with a healthy, a broken and a dead sensor nearby."""
+    """One monitor reading 8 µg/m³ with a healthy sensor and four faulty ones nearby."""
     hours = [NOW - timedelta(days=30) + h * HOUR for h in range(30 * 24)]
     reference = [ReferenceReading("QUAL0001", "Quality monitor", *MONITOR, t, 8.0) for t in hours]
     with engine.begin() as connection:
         station_ids = store.upsert_reference_stations(connection, reference)
         store.upsert_reference_readings(connection, reference, station_ids)
-        ids = store.upsert_lowcost_sensors(connection, [HEALTHY, BROKEN, DEAD])
+        ids = store.upsert_lowcost_sensors(connection, list(SENSORS))
         store.refresh_sensor_pairs(connection, 1000.0)
-        for sensor in (HEALTHY, BROKEN, DEAD):
+        for sensor in SENSORS:
             readings = [
                 LowcostReading(sensor.sensor_index, t, *lowcost_value(sensor, h), 50.0)
                 for h, t in enumerate(hours)
@@ -78,13 +85,15 @@ def thirty_days(engine: Engine) -> None:
             store.upsert_lowcost_readings(connection, readings, ids)
 
 
-def test_broken_and_dead_sensors_are_excluded(engine: Engine, thirty_days: None) -> None:
+def test_faulty_sensors_are_excluded_with_a_reason(engine: Engine, thirty_days: None) -> None:
     excluded = run_quality_check(engine, now=NOW)
 
     reasons = {sensor.source_id: sensor.reason for sensor in excluded}
     assert reasons == {
         "900202": "impossible values in 20% of hours",
         "900203": "reads near zero while its monitor does not",
+        "900204": "a channel missing in 100% of hours",
+        "900205": "channels disagree in 40% of hours",
     }
 
 
