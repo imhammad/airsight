@@ -51,6 +51,14 @@ feature, so one model covers all 24 horizons and learns from 24 times as many ro
 per horizon would. If the three answers cross (p10 above p50, say), they are sorted, so the range
 always reads low to high.
 
+**The range is calibrated (added 2026-11-12, #111).** The first backtest beat both baselines on
+MAE (2.88 against 3.37), but its p10 to p90 range held only 69% of hours. Quantile models learn
+how spread out the past was, and usually come out overconfident on hours they haven't seen. So
+each fit uses conformalized quantile regression: the models learn from all but the newest week,
+their misses on that week set how far to widen p10 and p90 for each hour ahead (enough for 80%
+of hours to fall inside), and then they learn from every row. p10 never goes below 0. The
+widening is stored with the models, because serving must apply it too.
+
 ## What it must beat
 
 Two baselines, scored by the same code:

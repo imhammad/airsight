@@ -5,6 +5,11 @@ hours ahead as a feature. They are backtested with the same harness and the same
 two baselines, and the ship rules decide whether the run is good enough to promote. Then one
 set of models is fitted on all development data and stored with the run.
 
+Quantile models trained on the past come out overconfident on the future: their p10 to p90 range
+holds fewer than 8 hours in 10. So each fit is calibrated (conformalized quantile regression):
+the models first learn from all but the newest week, the miss on that week sets how far to
+widen the range for each hour ahead, and then the models learn from every row.
+
 Run from backend/ with the stack up:  uv run python -m airsight.ml.forecast_train
 """
 
@@ -12,12 +17,13 @@ import argparse
 import json
 import logging
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import lightgbm as lgb
 import mlflow
+import numpy as np
 import pandas as pd
 
 from airsight.core.config import get_settings
@@ -51,6 +57,21 @@ PARAMS: dict[str, Any] = {
     "verbose": -1,
 }
 ROUNDS = 300
+CALIBRATION_DAYS = 7  # the newest week of training rows sets how far to widen the range
+COVERAGE = 0.8  # what p10 to p90 should hold
+
+
+def widening(predicted: pd.DataFrame, official: pd.Series, horizon: pd.Series) -> dict[int, float]:
+    """How far to move p10 down and p90 up, for each hour ahead, so 80% of hours fall inside.
+
+    The score of an hour is how far outside the range it fell (negative when inside). Moving both
+    ends by the 80th percentile of those scores puts 80% of the hours inside. A range that was
+    too wide gets a negative widening, which narrows it.
+    """
+    outside = pd.Series(
+        np.maximum(predicted["p10"] - official, official - predicted["p90"]), index=official.index
+    )
+    return {int(h): float(np.quantile(group, COVERAGE)) for h, group in outside.groupby(horizon)}
 
 
 class QuantileLightGbm:
@@ -60,20 +81,41 @@ class QuantileLightGbm:
     has_range = True
 
     boosters: dict[str, lgb.Booster]
+    widen: dict[int, float]  # hours ahead -> how far to move p10 down and p90 up
 
-    def fit(self, train: pd.DataFrame) -> None:
+    def _fit_boosters(self, train: pd.DataFrame) -> dict[str, lgb.Booster]:
         data = lgb.Dataset(train[FORECAST_FEATURES], label=train[TARGET], free_raw_data=False)
-        self.boosters = {
+        return {
             name: lgb.train({**PARAMS, "alpha": quantile}, data, num_boost_round=ROUNDS)
             for name, quantile in QUANTILES.items()
         }
 
-    def predict(self, frame: pd.DataFrame) -> pd.DataFrame:
+    def _raw_predict(self, frame: pd.DataFrame) -> pd.DataFrame:
         features = frame[FORECAST_FEATURES]
-        return pd.DataFrame(
+        predicted = pd.DataFrame(
             {name: booster.predict(features) for name, booster in self.boosters.items()},
             index=frame.index,
         )
+        ordered = np.sort(predicted[list(QUANTILES)].to_numpy(), axis=1)
+        return pd.DataFrame(ordered, columns=list(QUANTILES), index=frame.index)
+
+    def fit(self, train: pd.DataFrame) -> None:
+        # Calibrate on the newest week, purged like a fold: learn only from targets before it
+        start = train["issue_time"].max() - timedelta(days=CALIBRATION_DAYS)
+        proper = train[train["target_time"] < start]
+        calibration = train[train["issue_time"] >= start]
+        self.boosters = self._fit_boosters(proper)
+        self.widen = widening(
+            self._raw_predict(calibration), calibration[TARGET], calibration["horizon"]
+        )
+        self.boosters = self._fit_boosters(train)
+
+    def predict(self, frame: pd.DataFrame) -> pd.DataFrame:
+        predicted = self._raw_predict(frame)
+        widen = frame["horizon"].map(self.widen).fillna(0.0)
+        predicted["p10"] = (predicted["p10"] - widen).clip(lower=0.0)  # PM2.5 is never below 0
+        predicted["p90"] = predicted["p90"] + widen
+        return predicted
 
 
 def report_metrics(report: ForecastReport) -> dict[str, float]:
@@ -120,6 +162,8 @@ def train(dataset: Path) -> str:
         for name, booster in final_model.boosters.items():
             logged = mlflow.lightgbm.log_model(booster, name=name, input_example=example)
             mlflow.set_tag(f"model_uri.{name}", logged.model_uri)
+        # Serving needs the widening too, or its range would be the overconfident one
+        mlflow.log_dict({str(h): w for h, w in final_model.widen.items()}, "widening.json")
 
     for report in (persistence, yesterday, model):
         print(format_report(report))
