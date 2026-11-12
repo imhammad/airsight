@@ -6,10 +6,20 @@ import mlflow
 import numpy as np
 import pandas as pd
 import pytest
+from mlflow import MlflowClient
 
+from airsight.ml import forecast_registry
 from airsight.ml.forecast_evaluation import Persistence, backtest, split_final_test
-from airsight.ml.forecast_features import FORECAST_FEATURES, forecast_rows
-from airsight.ml.forecast_train import QuantileLightGbm, report_metrics, train, widening
+from airsight.ml.forecast_features import forecast_rows
+from airsight.ml.forecast_registry import MODEL_NAME, load_champion_version, promote
+from airsight.ml.forecast_train import (
+    QuantileLightGbm,
+    bundle_input,
+    report_metrics,
+    train,
+    widening,
+)
+from airsight.ml.registry import PromotionRefusedError
 
 START = datetime(2026, 6, 1, tzinfo=UTC)
 DAYS = 50
@@ -113,7 +123,8 @@ def local_mlflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     return uri
 
 
-def test_training_run_is_tracked(local_mlflow: str, tmp_path: Path) -> None:
+def trained_run(tmp_path: Path) -> tuple[str, pd.DataFrame]:
+    """A training run on the synthetic rows, with its dataset in tmp_path."""
     frame = synthetic_rows()
     dataset = tmp_path / "forecast-test.parquet"
     frame.to_parquet(dataset, index=False)
@@ -127,16 +138,53 @@ def test_training_run_is_tracked(local_mlflow: str, tmp_path: Path) -> None:
             }
         )
     )
+    return train(dataset), frame
 
-    run_id = train(dataset)
+
+def test_training_run_is_tracked(local_mlflow: str, tmp_path: Path) -> None:
+    run_id, frame = trained_run(tmp_path)
 
     run = mlflow.get_run(run_id)
     assert run.data.tags["dataset"] == "test"
     assert run.data.tags["period"] == "backtest"
     metrics = run.data.metrics
     assert metrics["lightgbm_quantile.headline_mae"] < metrics["persistence.headline_mae"]
-    for name in ("p10", "p50", "p90"):
-        loaded = mlflow.lightgbm.load_model(run.data.tags[f"model_uri.{name}"])
-        assert len(loaded.predict(frame[FORECAST_FEATURES].head(3))) == 3
-    widen = mlflow.artifacts.load_dict(f"runs:/{run_id}/widening.json")
-    assert set(widen) == {str(h) for h in range(1, 25)}
+    bundle = mlflow.pyfunc.load_model(run.data.tags["model_uri"])
+    predicted = pd.DataFrame(bundle.predict(bundle_input(frame.head(48))))
+    assert list(predicted.columns) == ["p10", "p50", "p90"]
+    assert (predicted["p10"] <= predicted["p50"]).all()
+    assert (predicted["p50"] <= predicted["p90"]).all()
+
+
+def test_promotion_scores_the_stored_model_and_makes_it_champion(
+    local_mlflow: str, tmp_path: Path
+) -> None:
+    run_id, frame = trained_run(tmp_path)
+
+    version = promote(run_id, datasets_dir=tmp_path)
+
+    bundle, name = load_champion_version()
+    assert name == f"{MODEL_NAME}/{version}"
+    tags = MlflowClient().get_model_version(MODEL_NAME, str(version)).tags
+    assert tags["trained_before"] == FINAL_TEST_START.isoformat()
+    run = mlflow.get_run(run_id)
+    assert run.data.tags["final_ships"] == "True"
+    assert "final.lightgbm_quantile.coverage" in run.data.metrics
+    predicted = pd.DataFrame(bundle.predict(bundle_input(frame.head(24))))
+    assert (predicted["p10"] <= predicted["p90"]).all()
+
+    with pytest.raises(PromotionRefusedError, match="champion exists"):
+        promote(run_id, datasets_dir=tmp_path)  # never replaced without a head-to-head
+
+
+def test_a_model_that_fails_the_ship_rules_is_not_registered(
+    local_mlflow: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_id, _ = trained_run(tmp_path)
+    monkeypatch.setattr(forecast_registry, "ship_check", lambda *_: ["too narrow"])
+
+    with pytest.raises(PromotionRefusedError, match="too narrow"):
+        promote(run_id, datasets_dir=tmp_path)
+
+    assert mlflow.get_run(run_id).data.tags["final_ships"] == "False"
+    assert MlflowClient().search_model_versions(f"name = '{MODEL_NAME}'") == []

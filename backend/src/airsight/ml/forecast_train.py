@@ -3,7 +3,8 @@
 Three LightGBM models, one per quantile (p10, p50 and p90), learn from the same rows with the
 hours ahead as a feature. They are backtested with the same harness and the same folds as the
 two baselines, and the ship rules decide whether the run is good enough to promote. Then one
-set of models is fitted on all development data and stored with the run.
+set of models is fitted on all development data and stored with the run, as one MLflow model
+that holds all three and their widening, so they can only ever be versioned and served together.
 
 Quantile models trained on the past come out overconfident on the future: their p10 to p90 range
 holds fewer than 8 hours in 10. So each fit is calibrated (conformalized quantile regression):
@@ -16,6 +17,7 @@ Run from backend/ with the stack up:  uv run python -m airsight.ml.forecast_trai
 import argparse
 import json
 import logging
+import tempfile
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -25,6 +27,7 @@ import lightgbm as lgb
 import mlflow
 import numpy as np
 import pandas as pd
+from mlflow.pyfunc.model import PythonModel, PythonModelContext
 
 from airsight.core.config import get_settings
 from airsight.core.logging import configure_logging
@@ -118,6 +121,52 @@ class QuantileLightGbm:
         return predicted
 
 
+class ForecastBundle(PythonModel):
+    """The three quantile models and their widening, stored and loaded as one MLflow model."""
+
+    model: QuantileLightGbm
+
+    def load_context(self, context: PythonModelContext) -> None:
+        model = QuantileLightGbm()
+        model.boosters = {
+            name: lgb.Booster(model_file=context.artifacts[name]) for name in QUANTILES
+        }
+        widen = json.loads(Path(context.artifacts["widening"]).read_text())
+        model.widen = {int(h): float(w) for h, w in widen.items()}
+        self.model = model
+
+    def predict(
+        self,
+        context: PythonModelContext,
+        model_input: pd.DataFrame,
+        params: dict[str, Any] | None = None,
+    ) -> pd.DataFrame:
+        """Columns p10, p50 and p90 (calibrated, in order) for rows with FORECAST_FEATURES."""
+        return self.model.predict(model_input)
+
+
+def bundle_input(frame: pd.DataFrame) -> pd.DataFrame:
+    """What the stored model takes: the features as floats, so a missing value is allowed."""
+    return frame[FORECAST_FEATURES].astype("float64")
+
+
+def log_bundle(model: QuantileLightGbm, example: pd.DataFrame) -> str:
+    """Store a fitted model as one MLflow model in the active run. Returns its model URI."""
+    with tempfile.TemporaryDirectory() as directory:
+        artifacts = {}
+        for name, booster in model.boosters.items():
+            path = Path(directory) / f"{name}.txt"
+            booster.save_model(str(path))
+            artifacts[name] = str(path)
+        widening_file = Path(directory) / "widening.json"
+        widening_file.write_text(json.dumps({str(h): w for h, w in model.widen.items()}))
+        artifacts["widening"] = str(widening_file)
+        logged = mlflow.pyfunc.log_model(
+            name="model", python_model=ForecastBundle(), artifacts=artifacts, input_example=example
+        )
+    return str(logged.model_uri)
+
+
 def report_metrics(report: ForecastReport) -> dict[str, float]:
     """Flatten a report into MLflow metric names, such as persistence.horizon.1-6h.mae."""
     prefix = report.model
@@ -158,12 +207,8 @@ def train(dataset: Path) -> str:
         )
         final_model = QuantileLightGbm()
         final_model.fit(development)
-        example = development[FORECAST_FEATURES].head(5).astype("float64")
-        for name, booster in final_model.boosters.items():
-            logged = mlflow.lightgbm.log_model(booster, name=name, input_example=example)
-            mlflow.set_tag(f"model_uri.{name}", logged.model_uri)
-        # Serving needs the widening too, or its range would be the overconfident one
-        mlflow.log_dict({str(h): w for h, w in final_model.widen.items()}, "widening.json")
+        example = bundle_input(development.head(5))
+        mlflow.set_tag("model_uri", log_bundle(final_model, example))  # what promotion registers
 
     for report in (persistence, yesterday, model):
         print(format_report(report))
