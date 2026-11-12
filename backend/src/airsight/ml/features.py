@@ -21,10 +21,11 @@ INPUT_COLUMNS = [
     "precipitation",
 ]
 
+# No sensor_humidity since #100: two sensors don't report it, and leaving it out cost 0.01 µg/m³
+# of headline MAE. Outdoor humidity from Open-Meteo stays, for every sensor.
 FEATURE_COLUMNS = [
     "raw",
     "channel_difference",
-    "sensor_humidity",
     "temperature",
     "relative_humidity",
     "wind_speed",
@@ -42,7 +43,7 @@ def add_features(frame: pd.DataFrame) -> pd.DataFrame:
     out = frame.copy()
     out["raw"] = (out["pm25_a"] + out["pm25_b"]) / 2
     out["channel_difference"] = (out["pm25_a"] - out["pm25_b"]).abs()
-    out["sensor_humidity"] = out["humidity"]
+    out["sensor_humidity"] = out["humidity"]  # not a model feature; the EPA baseline uses it
     local = pd.to_datetime(out["time"], utc=True).dt.tz_convert(LOCAL_TIMEZONE)
     out["local_hour"] = local.dt.hour
     out["day_of_week"] = local.dt.day_of_week
