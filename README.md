@@ -121,7 +121,8 @@ docs/        Architecture decisions (ADRs) and the engineering log
 
 - [Architecture decisions](docs/adr/)
 - [Data exploration](docs/data-exploration.md): what the data looks like and what is wrong with it
-- [Model card](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
+- [Model card: correction](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
+- [Model card: forecast](docs/model-cards/airsight-forecast-v1.md): how the 24-hour forecast was tested, and its limits
 - [API guide](docs/API.md): endpoints, fields, errors, caching, rate limits and performance
 - [Engineering log](docs/engineering-log.md): every problem hit and how it was solved
 - [Contributing](CONTRIBUTING.md)
