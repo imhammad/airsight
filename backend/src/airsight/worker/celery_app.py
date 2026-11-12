@@ -46,6 +46,11 @@ app.conf.update(
             # Once a day, between live runs
             "schedule": crontab(minute="45", hour="1"),
         },
+        "day-ahead-weather": {
+            "task": "airsight.load_day_ahead_weather",
+            # Once a day, between live runs; a missed day is reloaded the next day
+            "schedule": crontab(minute="45", hour="4"),
+        },
     },
 )
 

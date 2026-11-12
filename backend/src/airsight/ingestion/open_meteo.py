@@ -12,6 +12,9 @@ from airsight.ingestion.http_client import get_json
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+# What the weather model forecast 24 hours before each hour (ADR 0012), archived since 2024
+PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
+DAY_AHEAD = "_previous_day1"
 HOURLY_VARIABLES = (
     "temperature_2m",
     "relative_humidity_2m",
@@ -66,15 +69,34 @@ class OpenMeteoClient:
             ARCHIVE_URL, points, {"start_date": start.isoformat(), "end_date": end.isoformat()}
         )
 
+    def day_ahead(
+        self, points: Sequence[Point], start: date, end: date
+    ) -> dict[Point, list[WeatherHour]]:
+        """The forecast made 24 hours before each hour, between two dates inclusive.
+
+        Training the air quality forecast on these, never on observed weather, keeps future
+        weather out of its inputs (ADR 0012).
+        """
+        return self._fetch(
+            PREVIOUS_RUNS_URL,
+            points,
+            {"start_date": start.isoformat(), "end_date": end.isoformat()},
+            suffix=DAY_AHEAD,
+        )
+
     def _fetch(
-        self, url: str, points: Sequence[Point], extra: dict[str, str | int]
+        self,
+        url: str,
+        points: Sequence[Point],
+        extra: dict[str, str | int],
+        suffix: str = "",
     ) -> dict[Point, list[WeatherHour]]:
         if not points:
             return {}
         params: dict[str, str | int | float] = {
             "latitude": ",".join(str(p.latitude) for p in points),
             "longitude": ",".join(str(p.longitude) for p in points),
-            "hourly": ",".join(HOURLY_VARIABLES),
+            "hourly": ",".join(variable + suffix for variable in HOURLY_VARIABLES),
             "timeformat": "unixtime",  # times as UTC seconds, never local time
             **extra,
         }
@@ -84,9 +106,17 @@ class OpenMeteoClient:
         if len(locations) != len(points):
             raise ValueError(f"Asked for {len(points)} points, got {len(locations)}")
         return {
-            point: _to_hours(_Location.model_validate(location).hourly)
+            point: _to_hours(_Location.model_validate(_without_suffix(location, suffix)).hourly)
             for point, location in zip(points, locations, strict=True)
         }
+
+
+def _without_suffix(location: dict[str, Any], suffix: str) -> dict[str, Any]:
+    """temperature_2m_previous_day1 becomes temperature_2m, so one parser reads every API."""
+    if not suffix:
+        return location
+    hourly = {key.removesuffix(suffix): values for key, values in location["hourly"].items()}
+    return {**location, "hourly": hourly}
 
 
 def _to_hours(hourly: _Hourly) -> list[WeatherHour]:

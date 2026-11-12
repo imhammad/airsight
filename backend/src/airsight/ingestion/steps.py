@@ -1,7 +1,7 @@
 """Loading steps shared by the backfill command and the live ingestion job."""
 
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Protocol
 
 from sqlalchemy import Engine, text
@@ -32,6 +32,12 @@ class LowcostSource(Protocol):
 class WeatherSource(Protocol):
     def recent(
         self, points: Sequence[Point], past_days: int = ...
+    ) -> dict[Point, list[WeatherHour]]: ...
+
+
+class DayAheadWeatherSource(Protocol):
+    def day_ahead(
+        self, points: Sequence[Point], start: date, end: date
     ) -> dict[Point, list[WeatherHour]]: ...
 
 
@@ -86,3 +92,26 @@ def refresh_hourly(engine: Engine, start: datetime, end: datetime) -> None:
             text("CALL refresh_continuous_aggregate('lowcost_hourly', :start, :end)"),
             {"start": start, "end": end},
         )
+
+
+DAY_AHEAD_CHUNK_DAYS = 31  # one request per month of hours keeps each answer small
+
+
+def load_day_ahead_weather(
+    engine: Engine, source: DayAheadWeatherSource, start: datetime, end: datetime
+) -> int:
+    """Day-ahead forecasts for [start, end) in every cell in use, one month per request."""
+    rows = 0
+    with engine.connect() as connection:
+        cells = store.weather_cells_in_use(connection)
+    points = {Point(*map(float, cell.split(","))): cell for cell in cells}
+    day, last_day = start.date(), (end - timedelta(hours=1)).date()
+    while day <= last_day:
+        chunk_end = min(day + timedelta(days=DAY_AHEAD_CHUNK_DAYS - 1), last_day)
+        answer = source.day_ahead(list(points), day, chunk_end)
+        with engine.begin() as connection:
+            for point, hours in answer.items():
+                in_range = [h for h in hours if start <= h.time < end]
+                rows += store.upsert_day_ahead_weather(connection, points[point], in_range)
+        day = chunk_end + timedelta(days=1)
+    return rows

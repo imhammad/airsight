@@ -6,6 +6,16 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-12: The architecture document was in the repo twice
+
+- **Symptom:** docs/ARCHITECTURE.md had 415 lines: the whole document, a line reading
+  `EOFcat > docs/ARCHITECTURE.md <<'EOF'`, then the whole document again.
+- **Cause:** a heredoc's closing `EOF` was pasted together with the next copy of the command, so
+  the shell kept reading and wrote both copies, joined by that line, into the file.
+- **Fix:** kept the first copy (the two were identical) and added the new day_ahead_weather table.
+- **Lesson:** after writing a file with a heredoc, check its last lines (`tail -3 file`) before
+  committing. A rendered page hides a duplicate far down.
+
 ### 2026-11-12: A sensor we thought had disagreeing channels had a dead one
 
 - **Symptom:** 310 Carolina St (PurpleAir 73109) never got a corrected reading, and #99 said its

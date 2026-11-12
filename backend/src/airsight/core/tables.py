@@ -74,6 +74,19 @@ weather = Table(
     Column("precipitation", REAL),
 )
 
+# What was forecast 24 hours before each hour; only the forecast model trains on it (ADR 0012)
+day_ahead_weather = Table(
+    "day_ahead_weather",
+    metadata,
+    Column("cell_id", Text, primary_key=True),
+    Column("time", DateTime(timezone=True), primary_key=True),
+    Column("temperature", REAL),
+    Column("relative_humidity", REAL),
+    Column("wind_speed", REAL),
+    Column("wind_direction", REAL),
+    Column("precipitation", REAL),
+)
+
 sensor_pairs = Table(
     "sensor_pairs",
     metadata,
