@@ -710,6 +710,74 @@
           }
         }
       }
+    },
+    "/v1/accuracy/forecast": {
+      "get": {
+        "tags": [
+          "model"
+        ],
+        "summary": "Get Forecast Accuracy",
+        "description": "Live error of the stored forecasts against what the official monitors then read.\n\nEvery forecast was issued before its hour, so this is an honest out-of-sample number.",
+        "operationId": "get_forecast_accuracy_v1_accuracy_forecast_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 30,
+              "minimum": 1,
+              "description": "How many recent days to score",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "How many recent days to score"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastAccuracy"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -874,6 +942,128 @@
         ],
         "title": "Forecast"
       },
+      "ForecastAccuracy": {
+        "properties": {
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version",
+            "description": "The forecast model scored; null before any"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start",
+            "description": "Target hours from here"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End",
+            "description": "Up to here, exclusive"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "headline_mae": {
+            "$ref": "#/components/schemas/ForecastErrors",
+            "description": "Mean of the per-station MAEs (ADR 0012)"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage",
+            "description": "Mean of the per-station shares inside p10 to p90; 0.8 is the aim"
+          },
+          "by_horizon": {
+            "items": {
+              "$ref": "#/components/schemas/HorizonAccuracy"
+            },
+            "type": "array",
+            "title": "By Horizon"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/StationForecastAccuracy"
+            },
+            "type": "array",
+            "title": "Stations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_version",
+          "start",
+          "end",
+          "hours",
+          "headline_mae",
+          "coverage",
+          "by_horizon",
+          "stations"
+        ],
+        "title": "ForecastAccuracy"
+      },
+      "ForecastErrors": {
+        "properties": {
+          "forecast": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast",
+            "description": "The forecast's p50"
+          },
+          "persistence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persistence",
+            "description": "The monitor's reading when it was issued"
+          },
+          "same_hour_yesterday": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Same Hour Yesterday",
+            "description": "The monitor 24 hours before the hour"
+          }
+        },
+        "type": "object",
+        "required": [
+          "forecast",
+          "persistence",
+          "same_hour_yesterday"
+        ],
+        "title": "ForecastErrors",
+        "description": "Mean absolute error of the most likely value against the official monitor, in µg/m³."
+      },
       "ForecastHour": {
         "properties": {
           "target_time": {
@@ -942,6 +1132,47 @@
           "version"
         ],
         "title": "Health"
+      },
+      "HorizonAccuracy": {
+        "properties": {
+          "hours_ahead": {
+            "type": "string",
+            "enum": [
+              "1-6",
+              "7-12",
+              "13-24"
+            ],
+            "title": "Hours Ahead"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "mae": {
+            "$ref": "#/components/schemas/ForecastErrors",
+            "description": "Mean of the per-station MAEs"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage",
+            "description": "Share of hours inside p10 to p90, 0 to 1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hours_ahead",
+          "hours",
+          "mae",
+          "coverage"
+        ],
+        "title": "HorizonAccuracy"
       },
       "LatestPage": {
         "properties": {
@@ -1372,6 +1603,46 @@
           "source"
         ],
         "title": "StationAccuracy"
+      },
+      "StationForecastAccuracy": {
+        "properties": {
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "sensors": {
+            "type": "integer",
+            "title": "Sensors"
+          },
+          "hours": {
+            "type": "integer",
+            "title": "Hours"
+          },
+          "mae": {
+            "$ref": "#/components/schemas/ForecastErrors"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage",
+            "description": "Share of hours inside p10 to p90, 0 to 1"
+          }
+        },
+        "type": "object",
+        "required": [
+          "station",
+          "sensors",
+          "hours",
+          "mae",
+          "coverage"
+        ],
+        "title": "StationForecastAccuracy"
       },
       "Problem": {
         "description": "An error, as Problem Details (RFC 9457), sent as application/problem+json.",

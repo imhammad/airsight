@@ -113,7 +113,8 @@ Like the correction (ADR 0005), forecasts are computed in batch, not per request
   through the ship rules above.
 
 Keeping every issue, not only the latest, lets us score the live forecast later the same way
-we score the live correction.
+we score the live correction. `GET /v1/accuracy/forecast` does that: the same scores as the
+final test, on hours that had not happened when the forecast was issued.
 
 ## Consequences
 

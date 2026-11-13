@@ -3,10 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from airsight.api import accuracy
+from airsight.api import accuracy, forecast_accuracy
 from airsight.api.deps import Champion, DbConnection, Now
 from airsight.api.problems import responses
-from airsight.api.schemas import Accuracy, ModelInfo
+from airsight.api.schemas import Accuracy, ForecastAccuracy, ModelInfo
 
 router = APIRouter(tags=["model"])
 
@@ -33,3 +33,17 @@ def get_accuracy(
     if champion.trained_before is not None:
         start = min(max(start, champion.trained_before), end)
     return accuracy.score(connection, champion.model_version, start, end)
+
+
+@router.get("/accuracy/forecast", response_model=ForecastAccuracy)
+def get_forecast_accuracy(
+    connection: DbConnection,
+    now: Now,
+    days: Annotated[int, Query(ge=1, le=30, description="How many recent days to score")] = 7,
+) -> ForecastAccuracy:
+    """Live error of the stored forecasts against what the official monitors then read.
+
+    Every forecast was issued before its hour, so this is an honest out-of-sample number.
+    """
+    end = now.replace(minute=0, second=0, microsecond=0)
+    return forecast_accuracy.score(connection, end - timedelta(days=days), end)

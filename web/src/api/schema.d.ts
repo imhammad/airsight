@@ -183,6 +183,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/accuracy/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Forecast Accuracy
+         * @description Live error of the stored forecasts against what the official monitors then read.
+         *
+         *     Every forecast was issued before its hour, so this is an honest out-of-sample number.
+         */
+        get: operations["get_forecast_accuracy_v1_accuracy_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -264,6 +286,60 @@ export interface components {
              */
             hours: components["schemas"]["ForecastHour"][];
         };
+        /** ForecastAccuracy */
+        ForecastAccuracy: {
+            /**
+             * Model Version
+             * @description The forecast model scored; null before any
+             */
+            model_version: string | null;
+            /**
+             * Start
+             * Format: date-time
+             * @description Target hours from here
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             * @description Up to here, exclusive
+             */
+            end: string;
+            /** Hours */
+            hours: number;
+            /** @description Mean of the per-station MAEs (ADR 0012) */
+            headline_mae: components["schemas"]["ForecastErrors"];
+            /**
+             * Coverage
+             * @description Mean of the per-station shares inside p10 to p90; 0.8 is the aim
+             */
+            coverage: number | null;
+            /** By Horizon */
+            by_horizon: components["schemas"]["HorizonAccuracy"][];
+            /** Stations */
+            stations: components["schemas"]["StationForecastAccuracy"][];
+        };
+        /**
+         * ForecastErrors
+         * @description Mean absolute error of the most likely value against the official monitor, in µg/m³.
+         */
+        ForecastErrors: {
+            /**
+             * Forecast
+             * @description The forecast's p50
+             */
+            forecast: number | null;
+            /**
+             * Persistence
+             * @description The monitor's reading when it was issued
+             */
+            persistence: number | null;
+            /**
+             * Same Hour Yesterday
+             * @description The monitor 24 hours before the hour
+             */
+            same_hour_yesterday: number | null;
+        };
         /** ForecastHour */
         ForecastHour: {
             /**
@@ -309,6 +385,23 @@ export interface components {
             status: string;
             /** Version */
             version: string;
+        };
+        /** HorizonAccuracy */
+        HorizonAccuracy: {
+            /**
+             * Hours Ahead
+             * @enum {string}
+             */
+            hours_ahead: "1-6" | "7-12" | "13-24";
+            /** Hours */
+            hours: number;
+            /** @description Mean of the per-station MAEs */
+            mae: components["schemas"]["ForecastErrors"];
+            /**
+             * Coverage
+             * @description Share of hours inside p10 to p90, 0 to 1
+             */
+            coverage: number | null;
         };
         /** LatestPage */
         LatestPage: {
@@ -488,6 +581,21 @@ export interface components {
              * @enum {string}
              */
             source: "corrected" | "raw";
+        };
+        /** StationForecastAccuracy */
+        StationForecastAccuracy: {
+            /** Station */
+            station: string;
+            /** Sensors */
+            sensors: number;
+            /** Hours */
+            hours: number;
+            mae: components["schemas"]["ForecastErrors"];
+            /**
+             * Coverage
+             * @description Share of hours inside p10 to p90, 0 to 1
+             */
+            coverage: number | null;
         };
         /**
          * Problem
@@ -1017,6 +1125,56 @@ export interface operations {
             };
             /** @description No model has been promoted yet */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_forecast_accuracy_v1_accuracy_forecast_get: {
+        parameters: {
+            query?: {
+                /** @description How many recent days to score */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastAccuracy"];
+                };
+            };
+            /** @description Invalid parameters; errors lists each one */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description More than the rate limit; wait for Retry-After seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -40,4 +40,5 @@ def test_every_endpoint_in_adr_0008_exists() -> None:
         "/v1/readings/nearest",
         "/v1/model",
         "/v1/accuracy",
+        "/v1/accuracy/forecast",  # live forecast score (ADR 0012)
     }
