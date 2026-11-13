@@ -84,7 +84,7 @@ def normalized_query(query: str) -> str:
 
 def cache_ttl(path: str, query: str, now: datetime) -> int | None:
     """Seconds an answer to this request stays fresh, or None if it isn't cached."""
-    if path in LATEST_PATHS or re.fullmatch(r"/v1/sensors/[^/]+", path):
+    if path in LATEST_PATHS or re.fullmatch(r"/v1/sensors/[^/]+(/forecast)?", path):
         return LATEST_TTL
     if re.fullmatch(r"/v1/sensors/[^/]+/history", path):
         try:
