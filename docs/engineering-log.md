@@ -6,6 +6,17 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-13: Web checks failed after a backend-only API change
+
+- **Symptom:** on the forecast endpoint PR, every check passed except CI/Web checks. Backend
+  tests, including the openapi.json contract test, were green.
+- **Cause:** the web app's TypeScript types (`web/src/api/schema.d.ts`) are generated from
+  `docs/openapi.json`, and `npm run lint` runs `api:check`, which fails when they differ. We
+  regenerated openapi.json but not the types.
+- **Fix:** ran `npm run api:types` in `web/` and committed the regenerated `schema.d.ts`.
+- **Lesson:** an API change has two generated files: `docs/openapi.json` (backend) and
+  `web/src/api/schema.d.ts` (web). Regenerate both, and run `npm run lint` in `web/` before pushing.
+
 ### 2026-11-12: The first real forecast dataset build failed on two kinds of UTC
 
 - **Symptom:** `python -m airsight.ml.forecast_dataset` stopped with `TypeError: Start and end

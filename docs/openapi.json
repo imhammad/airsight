@@ -300,6 +300,79 @@
         }
       }
     },
+    "/v1/sensors/{sensor_id}/forecast": {
+      "get": {
+        "tags": [
+          "sensors"
+        ],
+        "summary": "Get Forecast",
+        "description": "PM2.5 for each of the next 24 hours, with the likely range (ADR 0012).",
+        "operationId": "get_forecast_v1_sensors__sensor_id__forecast_get",
+        "parameters": [
+          {
+            "name": "sensor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sensor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Forecast"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters; errors lists each one",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than the rate limit; wait for Retry-After seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No sensor with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/readings/latest": {
       "get": {
         "tags": [
@@ -759,6 +832,98 @@
         ],
         "title": "FinalTest",
         "description": "The release gate from ADR 0007: mean of per-station MAE on the 14-day final test."
+      },
+      "Forecast": {
+        "properties": {
+          "sensor_id": {
+            "type": "string",
+            "title": "Sensor Id"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At",
+            "description": "The last hour of data the forecast used, UTC"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version",
+            "description": "The model behind it, such as airsight-forecast/1"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "description": "True when the forecast was issued more than 6 hours ago"
+          },
+          "hours": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastHour"
+            },
+            "type": "array",
+            "title": "Hours",
+            "description": "One entry per hour ahead, soonest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sensor_id",
+          "issued_at",
+          "model_version",
+          "stale",
+          "hours"
+        ],
+        "title": "Forecast"
+      },
+      "ForecastHour": {
+        "properties": {
+          "target_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Target Time",
+            "description": "Start of the forecast hour, UTC"
+          },
+          "hours_ahead": {
+            "type": "integer",
+            "title": "Hours Ahead",
+            "description": "Hours after issued_at, 1 to 24"
+          },
+          "p10": {
+            "type": "number",
+            "title": "P10",
+            "description": "Low end of the likely range in µg/m³: 10% chance of less"
+          },
+          "p50": {
+            "type": "number",
+            "title": "P50",
+            "description": "Most likely PM2.5 in µg/m³, one decimal"
+          },
+          "p90": {
+            "type": "number",
+            "title": "P90",
+            "description": "High end of the likely range in µg/m³: 10% chance of more"
+          },
+          "aqi_category": {
+            "type": "string",
+            "title": "Aqi Category",
+            "description": "US EPA category of p50 (2024 breakpoints)"
+          },
+          "outside_experience": {
+            "type": "boolean",
+            "title": "Outside Experience",
+            "description": "True when the air is dirtier than the model has seen (above 35.4 µg/m³); the range is widened and less trustworthy (ADR 0012)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_time",
+          "hours_ahead",
+          "p10",
+          "p50",
+          "p90",
+          "aqi_category",
+          "outside_experience"
+        ],
+        "title": "ForecastHour"
       },
       "Health": {
         "properties": {

@@ -35,6 +35,27 @@ class SensorDetail(Sensor):
     latest_reading: Reading | None = Field(description="null for excluded sensors")
 
 
+class ForecastHour(BaseModel):
+    target_time: datetime = Field(description="Start of the forecast hour, UTC")
+    hours_ahead: int = Field(description="Hours after issued_at, 1 to 24")
+    p10: float = Field(description="Low end of the likely range in µg/m³: 10% chance of less")
+    p50: float = Field(description="Most likely PM2.5 in µg/m³, one decimal")
+    p90: float = Field(description="High end of the likely range in µg/m³: 10% chance of more")
+    aqi_category: str = Field(description="US EPA category of p50 (2024 breakpoints)")
+    outside_experience: bool = Field(
+        description="True when the air is dirtier than the model has seen (above 35.4 µg/m³); "
+        "the range is widened and less trustworthy (ADR 0012)"
+    )
+
+
+class Forecast(BaseModel):
+    sensor_id: str
+    issued_at: datetime = Field(description="The last hour of data the forecast used, UTC")
+    model_version: str = Field(description="The model behind it, such as airsight-forecast/1")
+    stale: bool = Field(description="True when the forecast was issued more than 6 hours ago")
+    hours: list[ForecastHour] = Field(description="One entry per hour ahead, soonest first")
+
+
 class NearbyReading(BaseModel):
     sensor: Sensor
     distance_km: float

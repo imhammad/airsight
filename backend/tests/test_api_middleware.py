@@ -220,6 +220,7 @@ def test_nearby_coordinates_share_a_cache_entry() -> None:
         ("/v1/readings/nearest", "lat=1&lon=2", LATEST_TTL),
         ("/v1/sensors", "", LATEST_TTL),
         ("/v1/sensors/pa-1", "", LATEST_TTL),
+        ("/v1/sensors/pa-1/forecast", "", LATEST_TTL),
         ("/v1/readings/latest", "", LATEST_TTL),
         (
             "/v1/sensors/pa-1/history",

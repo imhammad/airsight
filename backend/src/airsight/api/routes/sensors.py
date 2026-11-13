@@ -7,7 +7,7 @@ from pydantic import AwareDatetime
 from airsight.api import queries
 from airsight.api.deps import DbConnection, Now
 from airsight.api.problems import responses
-from airsight.api.schemas import ReadingPage, SensorDetail, SensorPage
+from airsight.api.schemas import Forecast, ReadingPage, SensorDetail, SensorPage
 
 router = APIRouter(tags=["sensors"])
 
@@ -55,3 +55,14 @@ def get_history(
     return ReadingPage(
         data=queries.history(connection, sensor_id, start, end, now), next_cursor=None
     )
+
+
+@router.get("/sensors/{sensor_id}/forecast", response_model=Forecast, responses=responses(404))
+def get_forecast(sensor_id: str, connection: DbConnection, now: Now) -> Forecast:
+    """PM2.5 for each of the next 24 hours, with the likely range (ADR 0012)."""
+    if queries.get_sensor(connection, sensor_id, now) is None:
+        raise HTTPException(status_code=404, detail=f"No sensor with id {sensor_id}")
+    result = queries.forecast(connection, sensor_id, now)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No forecast for sensor {sensor_id}")
+    return result

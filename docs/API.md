@@ -17,6 +17,7 @@ Every value comes from a registered model, and the API says which one. The rules
 | `GET /v1/sensors?limit=&cursor=` | every sensor we serve, paginated |
 | `GET /v1/sensors/{sensor_id}` | one sensor and its latest reading |
 | `GET /v1/sensors/{sensor_id}/history?start=&end=` | hourly readings, oldest first, at most 31 days |
+| `GET /v1/sensors/{sensor_id}/forecast` | PM2.5 for the next 24 hours, with a likely range |
 | `GET /v1/readings/latest?limit=&cursor=` | every sensor with its latest reading, for a map |
 | `GET /v1/readings/nearest?lat=&lon=&radius_km=&limit=` | latest readings of the closest healthy sensors |
 | `GET /v1/model` | the model behind every value, and its final-test results |
@@ -85,6 +86,23 @@ found unreliable is listed with `"health": "excluded"` and has no reading
 ```
 curl "http://localhost:8000/v1/sensors/pa-27359/history?start=2026-11-06T00:00:00Z&end=2026-11-07T00:00:00Z"
 ```
+
+### Forecast
+
+Every 3 hours we forecast the next 24 hours for each healthy sensor, from its recent readings,
+the official monitor next to it and the day-ahead weather forecast ([ADR 0012](adr/0012-forecast-design.md)).
+
+```
+curl "http://localhost:8000/v1/sensors/pa-27359/forecast"
+```
+
+Each hour has `p50`, the most likely PM2.5, and a likely range from `p10` to `p90`: on the final
+test the true value fell inside it 79% of the time. `issued_at` is the last hour of data the
+forecast used, so `hours_ahead` 1 is the hour after it. `aqi_category` follows `p50`.
+`outside_experience: true` means the air is dirtier than any the model was trained on (above
+35.4 µg/m³, such as wildfire smoke): the range is widened, and the forecast deserves less trust.
+`stale` is `true` when the newest forecast is more than 6 hours old. Excluded sensors, and sensors
+not forecast yet, return 404 `No forecast for sensor ...`.
 
 ### Model and accuracy
 
@@ -166,7 +184,7 @@ and `X-Cache: HIT` or `MISS`:
 
 | Data | Fresh for |
 |---|---|
-| latest readings, nearest, sensor list | 5 minutes |
+| latest readings, nearest, sensor list, forecasts | 5 minutes |
 | history ending before today (UTC) | 1 hour |
 | model | 1 hour, cleared when a new model is promoted |
 | accuracy | 15 minutes |

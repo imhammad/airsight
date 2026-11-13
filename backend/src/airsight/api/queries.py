@@ -11,7 +11,14 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import Connection, RowMapping, text
 
 from airsight.api.aqi import aqi_category, round_pm25
-from airsight.api.schemas import NearbyReading, Reading, Sensor, SensorDetail
+from airsight.api.schemas import (
+    Forecast,
+    ForecastHour,
+    NearbyReading,
+    Reading,
+    Sensor,
+    SensorDetail,
+)
 
 STALE_AFTER = timedelta(hours=6)  # two missed ingestions
 PREFIXES = {"purpleair": "pa"}
@@ -256,3 +263,55 @@ def history(
         HISTORY_SQL, {"source": source, "source_id": source_id, "start": start, "end": end}
     ).mappings()
     return [reading for row in rows if (reading := _reading(row, now)) is not None]
+
+
+# The newest forecast issued by now. Excluded sensors have none: their readings feed it.
+FORECAST_SQL = text(f"""
+    SELECT f.issue_time, f.horizon, f.target_time, f.p10, f.p50, f.p90,
+           f.outside_experience, f.model_version
+    FROM sensors s
+    LEFT JOIN sensor_health h ON h.sensor_id = s.id
+    JOIN forecasts f ON f.sensor_id = s.id
+    WHERE {SERVED}
+      AND COALESCE(h.status, 'ok') <> 'excluded'
+      AND s.source = :source AND s.source_id = :source_id
+      AND f.issue_time = (
+          SELECT max(issue_time) FROM forecasts
+          WHERE sensor_id = s.id AND issue_time <= :now
+      )
+    ORDER BY f.horizon
+""")
+
+
+def forecast(connection: Connection, sensor_id: str, now: datetime) -> Forecast | None:
+    """The newest forecast issued by now, or None for an excluded sensor or one not forecast yet."""
+    parsed = parse_public_id(sensor_id)
+    if parsed is None:
+        return None
+    source, source_id = parsed
+    rows = (
+        connection.execute(FORECAST_SQL, {"source": source, "source_id": source_id, "now": now})
+        .mappings()
+        .all()
+    )
+    if not rows:
+        return None
+    issued_at = rows[0]["issue_time"].astimezone(UTC)
+    return Forecast(
+        sensor_id=sensor_id,
+        issued_at=issued_at,
+        model_version=rows[0]["model_version"],
+        stale=now - issued_at > STALE_AFTER,
+        hours=[
+            ForecastHour(
+                target_time=row["target_time"].astimezone(UTC),
+                hours_ahead=row["horizon"],
+                p10=round_pm25(row["p10"]),
+                p50=round_pm25(row["p50"]),
+                p90=round_pm25(row["p90"]),
+                aqi_category=aqi_category(row["p50"]),
+                outside_experience=row["outside_experience"],
+            )
+            for row in rows
+        ],
+    )

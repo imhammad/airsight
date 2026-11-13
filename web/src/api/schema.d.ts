@@ -81,6 +81,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sensors/{sensor_id}/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Forecast
+         * @description PM2.5 for each of the next 24 hours, with the likely range (ADR 0012).
+         */
+        get: operations["get_forecast_v1_sensors__sensor_id__forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/readings/latest": {
         parameters: {
             query?: never;
@@ -217,6 +237,71 @@ export interface components {
             epa_headline_mae: number;
             /** Hours */
             hours: number;
+        };
+        /** Forecast */
+        Forecast: {
+            /** Sensor Id */
+            sensor_id: string;
+            /**
+             * Issued At
+             * Format: date-time
+             * @description The last hour of data the forecast used, UTC
+             */
+            issued_at: string;
+            /**
+             * Model Version
+             * @description The model behind it, such as airsight-forecast/1
+             */
+            model_version: string;
+            /**
+             * Stale
+             * @description True when the forecast was issued more than 6 hours ago
+             */
+            stale: boolean;
+            /**
+             * Hours
+             * @description One entry per hour ahead, soonest first
+             */
+            hours: components["schemas"]["ForecastHour"][];
+        };
+        /** ForecastHour */
+        ForecastHour: {
+            /**
+             * Target Time
+             * Format: date-time
+             * @description Start of the forecast hour, UTC
+             */
+            target_time: string;
+            /**
+             * Hours Ahead
+             * @description Hours after issued_at, 1 to 24
+             */
+            hours_ahead: number;
+            /**
+             * P10
+             * @description Low end of the likely range in µg/m³: 10% chance of less
+             */
+            p10: number;
+            /**
+             * P50
+             * @description Most likely PM2.5 in µg/m³, one decimal
+             */
+            p50: number;
+            /**
+             * P90
+             * @description High end of the likely range in µg/m³: 10% chance of more
+             */
+            p90: number;
+            /**
+             * Aqi Category
+             * @description US EPA category of p50 (2024 breakpoints)
+             */
+            aqi_category: string;
+            /**
+             * Outside Experience
+             * @description True when the air is dirtier than the model has seen (above 35.4 µg/m³); the range is widened and less trustworthy (ADR 0012)
+             */
+            outside_experience: boolean;
         };
         /** Health */
         Health: {
@@ -614,6 +699,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadingPage"];
+                };
+            };
+            /** @description No sensor with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid parameters; errors lists each one */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description More than the rate limit; wait for Retry-After seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unexpected server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_forecast_v1_sensors__sensor_id__forecast_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sensor_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Forecast"];
                 };
             };
             /** @description No sensor with this id */
