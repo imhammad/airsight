@@ -1,0 +1,45 @@
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.columns {
+  display: flex;
+  gap: 4px;
+  height: 120px;
+  border-bottom: 1px solid var(--line);
+}
+
+.slot {
+  position: relative;
+  flex: 1;
+  height: 100%;
+}
+
+/* The likely range: soft, so the most likely value reads first */
+.range {
+  position: absolute;
+  inset-inline: 0;
+  border-radius: 3px;
+  opacity: 0.35;
+  animation: fade-in var(--duration) var(--ease) both;
+}
+
+/* The most likely value: a firm tick across the range */
+.median {
+  position: absolute;
+  inset-inline: -1px;
+  height: 2px;
+  margin-bottom: -1px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--secondary);
+  font-size: 0.75rem;
+}

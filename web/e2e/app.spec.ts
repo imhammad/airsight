@@ -57,6 +57,12 @@ test("tap a sensor on the map, then see its detail", async ({ page }) => {
     page.getByRole("heading", { name: "Last 24 hours" }),
   ).toBeVisible();
   await expect(page.getByRole("img", { name: /^Hourly PM2.5/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Next 24 hours" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /^Forecast PM2.5 for the next 23 hours/ }),
+  ).toBeVisible();
 });
 
 test("a keyboard can pick a sensor, and a raw one says why", async ({

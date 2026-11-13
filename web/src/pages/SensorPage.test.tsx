@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { answerByPath, renderAt } from "../test/render";
+import { forecast } from "../test/forecast";
 import { BROKEN, NO_READING, OCEANVIEW, RAW } from "../test/sensors";
 
 afterEach(() => {
@@ -101,4 +102,77 @@ test("a healthy sensor without a reading isn't called out of service", async () 
   expect(await screen.findByText("No reading yet")).toBeInTheDocument();
   expect(screen.queryByText("Out of service")).not.toBeInTheDocument();
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
+});
+
+test("shows the forecast for the hours still ahead", async () => {
+  answerByPath({
+    "/v1/sensors/pa-27359": [200, OCEANVIEW],
+    "/v1/sensors/pa-27359/history": [200, history],
+    // Issued 2 hours ago, so its first hour is already past
+    "/v1/sensors/pa-27359/forecast": [200, forecast(2)],
+  });
+
+  renderAt("/sensors/pa-27359");
+
+  expect(
+    await screen.findByRole("img", {
+      name: /^Forecast PM2.5 for the next 23 hours/,
+    }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Next 24 hours" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/^Most likely good throughout/)).toBeInTheDocument();
+  expect(screen.getByText(/by airsight-forecast v1\.$/)).toBeInTheDocument();
+  expect(screen.queryByText(/over 6 hours ago/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/dirtier than any/)).not.toBeInTheDocument();
+});
+
+test("a stale forecast, or one above anything the model has seen, says so", async () => {
+  answerByPath({
+    "/v1/sensors/pa-27359": [200, OCEANVIEW],
+    "/v1/sensors/pa-27359/history": [200, history],
+    "/v1/sensors/pa-27359/forecast": [
+      200,
+      forecast(8, (ahead) =>
+        ahead === 12
+          ? {
+              p10: 20,
+              p50: 40,
+              p90: 60,
+              aqi_category: "unhealthy_sensitive",
+              outside_experience: true,
+            }
+          : {},
+      ),
+    ],
+  });
+
+  renderAt("/sensors/pa-27359");
+
+  expect(await screen.findByText(/made over 6 hours ago/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/dirtier than any our forecast was trained on/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      /^Most likely good, then unhealthy for sensitive groups, then good/,
+    ),
+  ).toBeInTheDocument();
+});
+
+test("a sensor without a forecast says one is on its way", async () => {
+  answerByPath({
+    "/v1/sensors/pa-27359": [200, OCEANVIEW],
+    "/v1/sensors/pa-27359/history": [200, history],
+  });
+
+  renderAt("/sensors/pa-27359");
+
+  expect(
+    await screen.findByText(/no forecast for this sensor yet/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("img", { name: /^Forecast/ }),
+  ).not.toBeInTheDocument();
 });

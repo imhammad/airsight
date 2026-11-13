@@ -109,6 +109,30 @@ function history(sensor: SensorDetail): Schemas["ReadingPage"] {
   return { data, next_cursor: null };
 }
 
+/** A forecast issued 2 hours ago, rising into the evening, for sensors with a reading. */
+function forecast(sensor: SensorDetail): Schemas["Forecast"] | null {
+  const latest = sensor.latest_reading;
+  if (!latest) return null;
+  return {
+    sensor_id: sensor.id,
+    issued_at: hoursAgo(2),
+    model_version: "airsight-forecast/1",
+    stale: false,
+    hours: Array.from({ length: 24 }, (_, index) => {
+      const p50 = Math.round((latest.pm25 + 3 * Math.sin(index / 5)) * 10) / 10;
+      return {
+        target_time: hoursAgo(1 - index),
+        hours_ahead: index + 1,
+        p10: Math.round(Math.max(0, p50 - 3 - index / 8) * 10) / 10,
+        p50,
+        p90: Math.round((p50 + 4 + index / 6) * 10) / 10,
+        aqi_category: p50 <= 9 ? "good" : "moderate",
+        outside_experience: false,
+      };
+    }),
+  };
+}
+
 const model: Schemas["ModelInfo"] = {
   name: "airsight-correction",
   version: 1,
@@ -168,9 +192,13 @@ function answer(path: string): [number, unknown] {
     return [200, { data: all, next_cursor: null }];
   if (path === "/v1/model") return [200, model];
   if (path === "/v1/accuracy") return [200, accuracy()];
-  const match = /^\/v1\/sensors\/([^/]+)(\/history)?$/.exec(path);
+  const match = /^\/v1\/sensors\/([^/]+)(\/history|\/forecast)?$/.exec(path);
   const sensor =
     match && all.find((item) => item.id === decodeURIComponent(match[1]));
+  if (sensor && match[2] === "/forecast") {
+    const body = forecast(sensor);
+    return body ? [200, body] : [404, problem(404, "No forecast")];
+  }
   if (sensor) return [200, match[2] ? history(sensor) : sensor];
   return [404, problem(404, "Not found")];
 }
