@@ -13,6 +13,8 @@ export type SensorDetail = Schemas["SensorDetail"];
 export type NearbyReading = Schemas["NearbyReading"];
 export type ModelInfo = Schemas["ModelInfo"];
 export type Accuracy = Schemas["Accuracy"];
+export type Forecast = Schemas["Forecast"];
+export type ForecastHour = Schemas["ForecastHour"];
 export type Problem = Schemas["Problem"];
 
 type Get<P extends keyof paths> = paths[P]["get"];
@@ -80,6 +82,10 @@ export const api = {
     get<"/v1/sensors/{sensor_id}/history">(
       `/v1/sensors/${encodeURIComponent(sensorId)}/history`,
       query,
+    ),
+  forecast: (sensorId: string) =>
+    get<"/v1/sensors/{sensor_id}/forecast">(
+      `/v1/sensors/${encodeURIComponent(sensorId)}/forecast`,
     ),
   model: () => get<"/v1/model">("/v1/model"),
   accuracy: (query: Query<"/v1/accuracy"> = {}) =>

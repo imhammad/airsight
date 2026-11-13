@@ -1,12 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { NavLink, useParams } from "react-router";
-import { api, ApiError, type SensorDetail } from "../api/client";
+import { api, ApiError, type Forecast, type SensorDetail } from "../api/client";
 import { CategoryBadge } from "../components/CategoryBadge";
+import { ForecastChart } from "../components/ForecastChart";
 import { HistoryChart } from "../components/HistoryChart";
 import { ErrorMessage, Loading } from "../components/Status";
 import { category } from "../lib/aqi";
-import { modelLabel, NO_READING_NOTE, RAW_NOTE } from "../lib/describe";
+import {
+  modelLabel,
+  NO_READING_NOTE,
+  OUTSIDE_EXPERIENCE_NOTE,
+  RAW_NOTE,
+} from "../lib/describe";
+import { summarize, upcoming } from "../lib/forecast";
 import { ago, HOUR, startOfHour } from "../lib/time";
 import styles from "./SensorPage.module.css";
 
@@ -121,6 +128,7 @@ function SensorDetails({ sensor, now }: { sensor: SensorDetail; now: number }) {
             </dl>
           </div>
           <LastDay sensorId={sensor.id} now={now} />
+          <NextDay sensorId={sensor.id} now={now} />
         </>
       )}
     </>
@@ -152,5 +160,74 @@ function LastDay({ sensorId, now }: { sensorId: string; now: number }) {
         <HistoryChart readings={history.data.data} now={now} />
       )}
     </section>
+  );
+}
+
+function NextDay({ sensorId, now }: { sensorId: string; now: number }) {
+  const forecast = useQuery({
+    queryKey: ["forecast", sensorId],
+    queryFn: () => api.forecast(sensorId),
+  });
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionTitle}>
+        <h2>Next 24 hours</h2>
+        <p className={styles.small}>Bay Area time</p>
+      </div>
+      {forecast.isPending ? (
+        <Loading label="Loading the forecast…" />
+      ) : forecast.isError ? (
+        forecast.error instanceof ApiError && forecast.error.status === 404 ? (
+          <p className={styles.note}>
+            There's no forecast for this sensor yet. A new one is made every 3
+            hours.
+          </p>
+        ) : (
+          <ErrorMessage
+            error={forecast.error}
+            onRetry={() => void forecast.refetch()}
+          />
+        )
+      ) : (
+        <ForecastDetails forecast={forecast.data} now={now} />
+      )}
+    </section>
+  );
+}
+
+function ForecastDetails({
+  forecast,
+  now,
+}: {
+  forecast: Forecast;
+  now: number;
+}) {
+  const hours = upcoming(forecast.hours, now);
+  if (hours.length === 0) {
+    return (
+      <p className={styles.note}>
+        The latest forecast has run out. A new one is made every 3 hours.
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className={styles.advice}>{summarize(hours)}</p>
+      {forecast.stale && (
+        <p className={styles.note}>
+          This forecast was made over 6 hours ago, so it may be out of date.
+        </p>
+      )}
+      {hours.some((hour) => hour.outside_experience) && (
+        <p className={styles.note}>{OUTSIDE_EXPERIENCE_NOTE}</p>
+      )}
+      <ForecastChart hours={hours} />
+      <p className={styles.small}>
+        The tick is the most likely value. The shaded range holds the real value
+        about 8 times in 10. Made {ago(forecast.issued_at, now)} by{" "}
+        {modelLabel(forecast.model_version)}.
+      </p>
+    </>
   );
 }

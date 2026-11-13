@@ -25,3 +25,7 @@ export function modelLabel(modelVersion: string): string {
   const [name, version] = modelVersion.split("/");
   return version ? `${name} v${version}` : modelVersion;
 }
+
+/** Why a forecast above 35.4 µg/m³ deserves less trust (ADR 0012), in the same words everywhere. */
+export const OUTSIDE_EXPERIENCE_NOTE =
+  "The air is dirtier than any our forecast was trained on, such as wildfire smoke. The range is wider, and the forecast is a rough guide only.";
