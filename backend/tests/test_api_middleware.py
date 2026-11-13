@@ -235,6 +235,7 @@ def test_nearby_coordinates_share_a_cache_entry() -> None:
         ("/v1/sensors/pa-1/history", "start=x&end=y", None),
         ("/v1/model", "", MODEL_TTL),
         ("/v1/accuracy", "days=7", 15 * 60),
+        ("/v1/accuracy/forecast", "days=7", 15 * 60),
         ("/v1/health", "", None),
     ],
 )

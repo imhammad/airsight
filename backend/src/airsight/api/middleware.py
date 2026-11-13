@@ -95,7 +95,7 @@ def cache_ttl(path: str, query: str, now: datetime) -> int | None:
         return PAST_TTL if end.tzinfo is not None and end <= today else LATEST_TTL
     if path == "/v1/model":
         return MODEL_TTL
-    if path == "/v1/accuracy":
+    if path in {"/v1/accuracy", "/v1/accuracy/forecast"}:
         return ACCURACY_TTL
     return None
 

@@ -128,6 +128,42 @@ class Accuracy(BaseModel):
     stations: list[StationAccuracy]
 
 
+class ForecastErrors(BaseModel):
+    """Mean absolute error of the most likely value against the official monitor, in µg/m³."""
+
+    forecast: float | None = Field(description="The forecast's p50")
+    persistence: float | None = Field(description="The monitor's reading when it was issued")
+    same_hour_yesterday: float | None = Field(description="The monitor 24 hours before the hour")
+
+
+class HorizonAccuracy(BaseModel):
+    hours_ahead: Literal["1-6", "7-12", "13-24"]
+    hours: int
+    mae: ForecastErrors = Field(description="Mean of the per-station MAEs")
+    coverage: float | None = Field(description="Share of hours inside p10 to p90, 0 to 1")
+
+
+class StationForecastAccuracy(BaseModel):
+    station: str
+    sensors: int
+    hours: int
+    mae: ForecastErrors
+    coverage: float | None = Field(description="Share of hours inside p10 to p90, 0 to 1")
+
+
+class ForecastAccuracy(BaseModel):
+    model_version: str | None = Field(description="The forecast model scored; null before any")
+    start: datetime = Field(description="Target hours from here")
+    end: datetime = Field(description="Up to here, exclusive")
+    hours: int
+    headline_mae: ForecastErrors = Field(description="Mean of the per-station MAEs (ADR 0012)")
+    coverage: float | None = Field(
+        description="Mean of the per-station shares inside p10 to p90; 0.8 is the aim"
+    )
+    by_horizon: list[HorizonAccuracy]
+    stations: list[StationForecastAccuracy]
+
+
 class Problem(BaseModel):
     """An error, as Problem Details (RFC 9457), sent as application/problem+json."""
 

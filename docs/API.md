@@ -22,6 +22,7 @@ Every value comes from a registered model, and the API says which one. The rules
 | `GET /v1/readings/nearest?lat=&lon=&radius_km=&limit=` | latest readings of the closest healthy sensors |
 | `GET /v1/model` | the model behind every value, and its final-test results |
 | `GET /v1/accuracy?days=` | live error against official monitors, per station |
+| `GET /v1/accuracy/forecast?days=` | live error of the forecast, by hours ahead and station |
 
 ### Readings near a place
 
@@ -116,6 +117,15 @@ score. For each station it reports the mean absolute error (MAE) of the correcte
 sensor and the EPA's US-wide correction, plus the corrected value's bias (positive means it reads
 high), and `source`: what the sensors next to that station show right now (ADR 0010).
 
+`/v1/accuracy/forecast?days=7` scores the stored forecasts whose hour fell in the last days
+(1 to 30) against what the monitor then read. A forecast is always issued before its hour, so
+this is out of sample too. It reports the MAE of `p50` next to the two baselines of ADR 0012
+(`persistence`: the monitor's reading when the forecast was issued; `same_hour_yesterday`), all
+three on exactly the same hours, plus `coverage`: the share of hours inside the `p10` to `p90`
+range, which should be near 0.8. Each is averaged per station first, overall (`headline_mae`)
+and for 1 to 6, 7 to 12 and 13 to 24 hours ahead (`by_horizon`). Only the newest forecast model
+is scored; `model_version` is `null` until a forecast has an hour to score.
+
 ## Readings
 
 | Field | Meaning |
@@ -187,7 +197,7 @@ and `X-Cache: HIT` or `MISS`:
 | latest readings, nearest, sensor list, forecasts | 5 minutes |
 | history ending before today (UTC) | 1 hour |
 | model | 1 hour, cleared when a new model is promoted |
-| accuracy | 15 minutes |
+| accuracy and forecast accuracy | 15 minutes |
 
 Coordinates are rounded to 3 decimals before the query runs, so two people 50 m apart share one
 cached answer.
