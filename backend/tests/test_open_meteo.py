@@ -99,3 +99,14 @@ def test_day_ahead_forecasts_are_read_like_observed_weather() -> None:
     assert url.host == "previous-runs-api.open-meteo.com"
     assert "wind_speed_10m_previous_day1" in url.params["hourly"].split(",")
     assert (url.params["start_date"], url.params["end_date"]) == ("2026-08-07", "2026-08-08")
+
+
+def test_upcoming_asks_for_the_forecast_from_today() -> None:
+    client, requests = client_serving(location([1767268800], [70.0]))
+
+    result = client.upcoming([SAN_FRANCISCO])
+
+    assert result[SAN_FRANCISCO][0].relative_humidity == 70.0
+    params = requests[0].url.params
+    assert requests[0].url.host == "api.open-meteo.com"
+    assert (params["past_days"], params["forecast_days"]) == ("0", "3")

@@ -41,6 +41,12 @@ app.conf.update(
             "schedule": crontab(minute="30", hour="*/3"),
             "options": {"expires": 2 * 60 * 60},
         },
+        "issue-forecast": {
+            "task": "airsight.issue_forecast",
+            # 15 minutes after each correction run, so it forecasts from the hour just ingested
+            "schedule": crontab(minute="45", hour="*/3"),
+            "options": {"expires": 2 * 60 * 60},
+        },
         "quality-check": {
             "task": "airsight.check_quality",
             # Once a day, between live runs

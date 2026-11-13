@@ -61,6 +61,10 @@ class OpenMeteoClient:
         """The last few days of observed weather (used by live ingestion)."""
         return self._fetch(FORECAST_URL, points, {"past_days": past_days, "forecast_days": 1})
 
+    def upcoming(self, points: Sequence[Point], days: int = 3) -> dict[Point, list[WeatherHour]]:
+        """The latest forecast, from 00:00 UTC today for `days` days (used by the forecast job)."""
+        return self._fetch(FORECAST_URL, points, {"past_days": 0, "forecast_days": days})
+
     def history(
         self, points: Sequence[Point], start: date, end: date
     ) -> dict[Point, list[WeatherHour]]:
