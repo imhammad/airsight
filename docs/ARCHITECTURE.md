@@ -73,7 +73,8 @@ sequenceDiagram
     W->>Src: request monitor and weather data
     Src-->>W: data
     W->>DB: upsert reference_readings and weather
-    Beat->>W: forecast (hourly, after ingestion)
+    Beat->>W: issue_forecast (every 3 hours at :45, after correction)
+    W->>Src: request the upcoming weather forecast
     W->>DB: read recent hourly features
     W->>DB: upsert forecasts for the next 24 hours
     API->>DB: read latest results with as_of
@@ -192,16 +193,22 @@ CREATE TABLE corrected_readings (
     PRIMARY KEY (sensor_id, time, model_version)
 );
 
--- Hypertable on target_time. Each hourly run forecasts the next 24 hours with a range.
+-- Hypertable on issue_time. Every 3 hours the job forecasts the next 24 hours with a range
+-- (ADR 0012). Every issue is kept, so the live forecast can be scored later; issuing the same
+-- hour again replaces it.
 CREATE TABLE forecasts (
-    sensor_id     bigint NOT NULL REFERENCES sensors (id),
-    issued_at     timestamptz NOT NULL,
-    target_time   timestamptz NOT NULL,
-    model_version text NOT NULL,
-    pm25_p10      real NOT NULL,
-    pm25_p50      real NOT NULL,
-    pm25_p90      real NOT NULL,
-    PRIMARY KEY (sensor_id, issued_at, target_time, model_version)
+    sensor_id          bigint NOT NULL REFERENCES sensors (id),
+    issue_time         timestamptz NOT NULL,
+    horizon            smallint NOT NULL CHECK (horizon BETWEEN 1 AND 24),
+    target_time        timestamptz NOT NULL,
+    p10                real NOT NULL,
+    p50                real NOT NULL,
+    p90                real NOT NULL,
+    outside_experience boolean NOT NULL,  -- above 35.4 µg/m³: marked, range widened
+    model_version      text NOT NULL,
+    computed_at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (sensor_id, issue_time, horizon),
+    CHECK (0 <= p10 AND p10 <= p50 AND p50 <= p90)
 );
 
 -- One row per task run, for debugging and monitoring.

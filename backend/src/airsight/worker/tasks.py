@@ -4,7 +4,7 @@ from dataclasses import asdict
 
 from airsight.core.db import get_engine
 from airsight.ingestion import day_ahead, live, quality
-from airsight.ml import batch
+from airsight.ml import batch, forecast_batch
 from airsight.worker.celery_app import app
 
 
@@ -30,3 +30,9 @@ def correct_readings() -> int:
 def load_day_ahead_weather() -> int:
     """Reload the last 3 days of day-ahead weather forecasts (daily, ADR 0012)."""
     return day_ahead.load_with_real_client()
+
+
+@app.task(name="airsight.issue_forecast")
+def issue_forecast() -> int:
+    """Forecast the next 24 hours for every healthy paired sensor (every 3 hours, ADR 0012)."""
+    return forecast_batch.forecast_latest(get_engine())

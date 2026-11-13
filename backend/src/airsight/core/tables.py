@@ -149,3 +149,19 @@ serving_sources = Table(
     Column("decided_at", DateTime(timezone=True), nullable=False),
     CheckConstraint("source IN ('corrected', 'raw')", name="serving_sources_source_check"),
 )
+
+# Every hour of every issued air quality forecast, with the model that made it (ADR 0012)
+forecasts = Table(
+    "forecasts",
+    metadata,
+    Column("sensor_id", BigInteger, ForeignKey("sensors.id"), primary_key=True),
+    Column("issue_time", DateTime(timezone=True), primary_key=True),
+    Column("horizon", SmallInteger, primary_key=True),
+    Column("target_time", DateTime(timezone=True), nullable=False),
+    Column("p10", REAL, nullable=False),
+    Column("p50", REAL, nullable=False),
+    Column("p90", REAL, nullable=False),
+    Column("outside_experience", Boolean, nullable=False),
+    Column("model_version", Text, nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
