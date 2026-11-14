@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 # AirNow publishes some hours late and revises recent ones, and it costs nothing to ask again
 REFERENCE_LOOKBACK = timedelta(hours=6)
+# After an outage (ours or AirNow's), go back to the newest stored hour, up to 3 days: one
+# request per day, and AirNow charges nothing
+MAX_REFERENCE_CATCH_UP = timedelta(days=3)
 # A sensor with no readings yet gets the same window as one normal run
 FIRST_WINDOW = timedelta(hours=3)
 # After an outage, catch up at most one day per sensor so one run can't drain the points
@@ -50,6 +53,15 @@ def start_of_hour(moment: datetime) -> datetime:
     return moment.replace(minute=0, second=0, microsecond=0)
 
 
+def reference_window(latest: datetime | None, end: datetime) -> datetime:
+    """Where the AirNow request starts: the last 6 hours, or further back to fill a gap."""
+    if latest is None:
+        return end - REFERENCE_LOOKBACK
+    return max(
+        min(latest + timedelta(hours=1), end - REFERENCE_LOOKBACK), end - MAX_REFERENCE_CATCH_UP
+    )
+
+
 def lowcost_window(latest: datetime | None, end: datetime) -> datetime:
     """Where a sensor's next request starts: right after its newest stored hour."""
     if latest is None:
@@ -67,12 +79,13 @@ def ingest_recent(
     """Load the hours each source is missing, up to end (exclusive). Every write is an upsert."""
     report = LiveReport()
 
-    report.reference_rows = steps.load_reference(engine, reference, end - REFERENCE_LOOKBACK, end)
-
     with engine.connect() as connection:
+        reference_start = reference_window(store.latest_reference_time(connection), end)
         paired = store.paired_lowcost_sensors(connection)
         latest = store.latest_lowcost_times(connection)
-    earliest = end - REFERENCE_LOOKBACK
+    report.reference_rows = steps.load_reference(engine, reference, reference_start, end)
+
+    earliest = reference_start
     for sensor_index, sensor_id in paired.items():
         start = lowcost_window(latest.get(sensor_id), end)
         if start >= end:

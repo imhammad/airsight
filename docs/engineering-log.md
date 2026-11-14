@@ -6,6 +6,19 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-13: Official readings stopped, and a gap in them never filled
+
+- **Symptom:** the live forecast score showed 0 hours. The newest official reading was
+  2026-11-12 14:00 UTC, though every live run since had succeeded, with `reference_rows=0`.
+- **Cause:** two things. AirNow's Bay Area feed stopped at 19:00 UTC (Los Angeles and New York
+  stayed current, so it was regional and on their side). And no live run happened between
+  15:15 and 23:24 (the laptop was off), while each run only asked AirNow for the last 6 hours,
+  so 15:00 to 19:00, which AirNow did have, was never fetched. PurpleAir already caught up after a gap; AirNow didn't.
+- **Fix:** `reference_window` starts the AirNow request right after the newest stored hour, at
+  least 6 hours back (late and revised hours) and at most 3 days back.
+- **Lesson:** every source needs the same catch-up rule. A "last N hours" window is only safe
+  if the job never misses a run, and a laptop always does.
+
 ### 2026-11-13: Web checks failed after a backend-only API change
 
 - **Symptom:** on the forecast endpoint PR, every check passed except CI/Web checks. Backend
