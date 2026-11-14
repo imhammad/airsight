@@ -127,6 +127,8 @@ def issue_forecast(
     predicted.index = rows.index
     predicted = mark_unseen_air(rows, predicted.clip(lower=0.0))  # PM2.5 is never below 0
     keys = rows[["sensor_id", "issue_time", "horizon", "target_time"]]
+    # No monitor reading in the last 3 hours: the model ran on the sensor and the weather alone
+    offline = rows["official_now"].isna().rename("monitor_offline")
     records = [
         {
             "sensor_id": int(r["sensor_id"]),
@@ -137,9 +139,10 @@ def issue_forecast(
             "p50": float(r["p50"]),
             "p90": float(r["p90"]),
             "outside_experience": bool(r["outside_experience"]),
+            "monitor_offline": bool(r["monitor_offline"]),
             "model_version": model_version,
         }
-        for r in pd.concat([keys, predicted], axis=1).to_dict("records")
+        for r in pd.concat([keys, predicted, offline], axis=1).to_dict("records")
     ]
     statement = insert(forecasts).values(records)
     with engine.begin() as connection:
@@ -149,6 +152,7 @@ def issue_forecast(
                 set_={
                     **{c: statement.excluded[c] for c in ("target_time", "p10", "p50", "p90")},
                     "outside_experience": statement.excluded.outside_experience,
+                    "monitor_offline": statement.excluded.monitor_offline,
                     "model_version": statement.excluded.model_version,
                     "computed_at": func.now(),
                 },

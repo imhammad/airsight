@@ -268,7 +268,7 @@ def history(
 # The newest forecast issued by now. Excluded sensors have none: their readings feed it.
 FORECAST_SQL = text(f"""
     SELECT f.issue_time, f.horizon, f.target_time, f.p10, f.p50, f.p90,
-           f.outside_experience, f.model_version
+           f.outside_experience, f.monitor_offline, f.model_version
     FROM sensors s
     LEFT JOIN sensor_health h ON h.sensor_id = s.id
     JOIN forecasts f ON f.sensor_id = s.id
@@ -302,6 +302,7 @@ def forecast(connection: Connection, sensor_id: str, now: datetime) -> Forecast 
         issued_at=issued_at,
         model_version=rows[0]["model_version"],
         stale=now - issued_at > STALE_AFTER,
+        monitor_offline=rows[0]["monitor_offline"],
         hours=[
             ForecastHour(
                 target_time=row["target_time"].astimezone(UTC),

@@ -34,6 +34,7 @@ def forecast_rows(sensor_id: int, issue_time: datetime, p50: float) -> list[dict
             "p50": p50 + horizon / 100,
             "p90": p50 + 3.0,
             "outside_experience": p50 > 35.4,
+            "monitor_offline": p50 > 35.4,  # the old forecast, to tell the two apart
             "model_version": MODEL,
         }
         for horizon in range(24, 0, -1)  # stored out of order on purpose
@@ -107,6 +108,7 @@ def test_forecast_is_the_newest_issue_with_24_hours_soonest_first(client: TestCl
     assert body["issued_at"] == "2026-03-01T10:00:00Z"
     assert body["model_version"] == MODEL
     assert body["stale"] is False
+    assert body["monitor_offline"] is False
     hours = body["hours"]
     assert [hour["hours_ahead"] for hour in hours] == list(range(1, 25))
     assert hours[0]["target_time"] == "2026-03-01T11:00:00Z"
@@ -129,6 +131,7 @@ def test_forecast_issued_more_than_6_hours_ago_is_stale(client: TestClient) -> N
 
     assert body["issued_at"] == "2026-03-01T03:00:00Z"
     assert body["stale"] is True
+    assert body["monitor_offline"] is True
     assert all(hour["outside_experience"] for hour in body["hours"])
     assert body["hours"][0]["aqi_category"] == "unhealthy_sensitive"
 

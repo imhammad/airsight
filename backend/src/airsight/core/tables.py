@@ -162,6 +162,7 @@ forecasts = Table(
     Column("p50", REAL, nullable=False),
     Column("p90", REAL, nullable=False),
     Column("outside_experience", Boolean, nullable=False),
+    Column("monitor_offline", Boolean, nullable=False, server_default="false"),
     Column("model_version", Text, nullable=False),
     Column("computed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )

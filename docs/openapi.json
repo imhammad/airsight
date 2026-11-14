@@ -923,6 +923,11 @@
             "title": "Stale",
             "description": "True when the forecast was issued more than 6 hours ago"
           },
+          "monitor_offline": {
+            "type": "boolean",
+            "title": "Monitor Offline",
+            "description": "True when the nearby official monitor had no reading in the 3 hours before issued_at, so the forecast used the sensor and the weather alone (about 7% less accurate on the final test, with the range still holding about 8 in 10)"
+          },
           "hours": {
             "items": {
               "$ref": "#/components/schemas/ForecastHour"
@@ -938,6 +943,7 @@
           "issued_at",
           "model_version",
           "stale",
+          "monitor_offline",
           "hours"
         ],
         "title": "Forecast"

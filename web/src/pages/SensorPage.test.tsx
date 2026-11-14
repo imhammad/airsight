@@ -126,6 +126,27 @@ test("shows the forecast for the hours still ahead", async () => {
   expect(screen.getByText(/by airsight-forecast v1\.$/)).toBeInTheDocument();
   expect(screen.queryByText(/over 6 hours ago/)).not.toBeInTheDocument();
   expect(screen.queryByText(/dirtier than any/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/monitor nearby/)).not.toBeInTheDocument();
+});
+
+test("a forecast made without the nearby monitor says so", async () => {
+  answerByPath({
+    "/v1/sensors/pa-27359": [200, OCEANVIEW],
+    "/v1/sensors/pa-27359/history": [200, history],
+    "/v1/sensors/pa-27359/forecast": [
+      200,
+      forecast(2, () => ({}), { monitor_offline: true }),
+    ],
+  });
+
+  renderAt("/sensors/pa-27359");
+
+  expect(
+    await screen.findByText(/official monitor nearby hasn't reported recently/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("img", { name: /^Forecast PM2.5/ }),
+  ).toBeInTheDocument();
 });
 
 test("a stale forecast, or one above anything the model has seen, says so", async () => {

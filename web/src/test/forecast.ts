@@ -14,6 +14,7 @@ export function forecast(
     issued_at: new Date(issued).toISOString(),
     model_version: "airsight-forecast/1",
     stale: issuedHoursAgo > 6,
+    monitor_offline: false,
     hours: Array.from({ length: 24 }, (_, i) => ({
       target_time: new Date(issued + (i + 1) * HOUR).toISOString(),
       hours_ahead: i + 1,

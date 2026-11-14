@@ -102,7 +102,11 @@ test the true value fell inside it 79% of the time. `issued_at` is the last hour
 forecast used, so `hours_ahead` 1 is the hour after it. `aqi_category` follows `p50`.
 `outside_experience: true` means the air is dirtier than any the model was trained on (above
 35.4 µg/m³, such as wildfire smoke): the range is widened, and the forecast deserves less trust.
-`stale` is `true` when the newest forecast is more than 6 hours old. Excluded sensors, and sensors
+`stale` is `true` when the newest forecast is more than 6 hours old. `monitor_offline` is
+`true` when the official monitor next to the sensor had no reading in the 3 hours before
+`issued_at` (an AirNow outage, for example): the forecast then rests on the sensor and the
+weather alone. On the final test that made it about 7% less accurate (MAE 2.88 against 2.69),
+and the range still held the real value 78% of the time. Excluded sensors, and sensors
 not forecast yet, return 404 `No forecast for sensor ...`.
 
 ### Model and accuracy
