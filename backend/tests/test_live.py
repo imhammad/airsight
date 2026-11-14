@@ -6,7 +6,7 @@ from sqlalchemy import Engine, text
 
 from airsight.ingestion import store
 from airsight.ingestion.airnow import ReferenceReading
-from airsight.ingestion.live import LOCK_ID, lowcost_window, run_live_ingestion
+from airsight.ingestion.live import LOCK_ID, lowcost_window, reference_window, run_live_ingestion
 from airsight.ingestion.open_meteo import Point, WeatherHour
 from airsight.ingestion.purpleair import LowcostReading, PointsBudget, Sensor
 from airsight.ingestion.regions import BoundingBox
@@ -25,9 +25,13 @@ def hours(start: datetime, end: datetime) -> list[datetime]:
 
 
 class FakeAirNow:
+    def __init__(self) -> None:
+        self.requests: list[tuple[datetime, datetime]] = []
+
     def hourly_pm25(
         self, area: BoundingBox, start: datetime, end: datetime
     ) -> list[ReferenceReading]:
+        self.requests.append((start, end))
         return [
             ReferenceReading("LIVE0001", "Live test monitor", 37.6, -121.9, t, 8.0)
             for t in hours(start, end + HOUR)
@@ -69,6 +73,24 @@ def run(engine: Engine, now: datetime) -> FakePurpleAir:
     purpleair = FakePurpleAir()
     run_live_ingestion(engine, FakeAirNow(), purpleair, FakeOpenMeteo(), now=now)
     return purpleair
+
+
+END = datetime(2026, 6, 1, 12, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("latest", "start"),
+    [
+        (None, END - 6 * HOUR),  # first run: one normal window
+        (END - 2 * HOUR, END - 6 * HOUR),  # up to date: still ask again for late and revised hours
+        (END - 10 * HOUR, END - 9 * HOUR),  # a gap: start right after the newest stored hour
+        (END - timedelta(days=5), END - timedelta(days=3)),  # a long gap: at most 3 days back
+    ],
+)
+def test_airnow_request_fills_any_gap_up_to_three_days(
+    latest: datetime | None, start: datetime
+) -> None:
+    assert reference_window(latest, END) == start
 
 
 def test_new_sensor_starts_with_the_last_three_hours() -> None:
@@ -123,3 +145,17 @@ def test_a_run_is_skipped_while_another_holds_the_lock(engine: Engine, paired: N
 
     assert report.skipped
     assert purpleair.requests == {}
+
+
+def test_after_a_gap_airnow_is_asked_from_the_newest_stored_hour(
+    engine: Engine, paired: None
+) -> None:
+    later = NOW + timedelta(days=12)  # the last run that loaded anything was 2 days before
+    with engine.connect() as connection:
+        latest = store.latest_reference_time(connection)
+    assert latest is not None and later - latest < timedelta(days=3)
+
+    airnow = FakeAirNow()
+    run_live_ingestion(engine, airnow, FakePurpleAir(), FakeOpenMeteo(), now=later)
+
+    assert airnow.requests[0][0] == latest + HOUR

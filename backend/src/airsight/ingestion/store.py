@@ -257,6 +257,14 @@ def latest_lowcost_times(connection: Connection) -> dict[int, datetime]:
     return {sensor_id: latest for sensor_id, latest in rows}
 
 
+def latest_reference_time(connection: Connection) -> datetime | None:
+    """Newest stored hour of any official monitor, or None before the first load."""
+    latest: datetime | None = connection.execute(
+        select(func.max(reference_readings.c.time))
+    ).scalar_one()
+    return latest
+
+
 def earliest_lowcost_times(connection: Connection) -> dict[int, datetime]:
     """Oldest stored hour of every low-cost sensor that has readings, by database id."""
     rows = connection.execute(
