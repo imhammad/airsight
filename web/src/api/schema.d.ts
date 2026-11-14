@@ -281,6 +281,11 @@ export interface components {
              */
             stale: boolean;
             /**
+             * Monitor Offline
+             * @description True when the nearby official monitor had no reading in the 3 hours before issued_at, so the forecast used the sensor and the weather alone (about 7% less accurate on the final test, with the range still holding about 8 in 10)
+             */
+            monitor_offline: boolean;
+            /**
              * Hours
              * @description One entry per hour ahead, soonest first
              */

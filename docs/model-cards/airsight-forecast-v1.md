@@ -100,6 +100,15 @@ headline MAE 2.88 against 3.37 for persistence and 3.52 for same hour yesterday 
 2.99 by horizon group), coverage 82%. The final test came out slightly better than the backtest,
 and its coverage held, so the calibration generalised to days it never saw.
 
+### Without the monitor (checked 2026-11-14)
+
+AirNow's Bay Area feed went down on 12 November, so live forecasts ran without the monitor's
+latest reading, the model's biggest input. Scoring the champion on the same final test with that
+reading blanked out: MAE 2.88 against 2.69 (2.74, 2.84 and 2.97 by horizon group), coverage 78%.
+That is about 7% less accurate, still ahead of both baselines (which need the monitor anyway), and
+the range stays honest. Only 1.1% of training rows lacked the reading. Such forecasts are now
+stored with `monitor_offline`, and the sensor page says so.
+
 ## Limitations
 
 - **No smoke data.** Three months of summer and autumn air, mostly clean. Under ADR 0012, serving

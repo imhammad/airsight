@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 import pytest
 from celery.schedules import crontab
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, select, text
 
 from airsight.core.tables import forecasts, sensor_health
 from airsight.ingestion import store
@@ -118,6 +118,7 @@ def test_healthy_sensors_get_24_hours_with_the_upcoming_weather(
     assert healthy["p50"].tolist() == pytest.approx([10.2] * 24)
     assert set(healthy["model_version"]) == {"airsight-forecast/1"}
     assert not healthy["outside_experience"].any()
+    assert not healthy["monitor_offline"].any()
     assert stored(engine, sensors[EXCLUDED.sensor_index]).empty
     assert stored(engine, sensors[FLAGGED.sensor_index]).empty
     assert (model.inputs["temperature"] == 9.0).all()  # the forecast, never observed weather
@@ -131,6 +132,32 @@ def test_issuing_again_replaces_the_hours(engine: Engine, sensors: dict[int, int
     healthy = stored(engine, sensors[HEALTHY.sensor_index])
     assert len(healthy) == 24
     assert set(healthy["model_version"]) == {"airsight-forecast/2"}
+
+
+def test_a_forecast_without_the_monitor_says_so(engine: Engine, sensors: dict[int, int]) -> None:
+    window = {"start": ISSUE - 2 * HOUR, "end": ISSUE}
+    station = "SELECT id FROM sensors WHERE source_id = 'FCST0002'"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                f"DELETE FROM reference_readings WHERE sensor_id = ({station}) "
+                "AND time BETWEEN :start AND :end"
+            ),
+            window,
+        )
+    try:
+        model = FakeModel()
+        issue_forecast(engine, model, "airsight-forecast/1", FakeWeather(), ISSUE)
+    finally:
+        with engine.begin() as connection:  # put the monitor back for the tests after this one
+            hours = [ISSUE - 2 * HOUR, ISSUE - HOUR, ISSUE]
+            reference = [ReferenceReading("FCST0002", "Hollister", *MONITOR, t, 7.0) for t in hours]
+            ids = store.upsert_reference_stations(connection, reference)
+            store.upsert_reference_readings(connection, reference, ids)
+
+    healthy = stored(engine, sensors[HEALTHY.sensor_index])
+    assert model.inputs["official_now"].isna().all()
+    assert healthy["monitor_offline"].all()
 
 
 def test_unseen_air_is_marked_and_widened() -> None:

@@ -53,6 +53,11 @@ class Forecast(BaseModel):
     issued_at: datetime = Field(description="The last hour of data the forecast used, UTC")
     model_version: str = Field(description="The model behind it, such as airsight-forecast/1")
     stale: bool = Field(description="True when the forecast was issued more than 6 hours ago")
+    monitor_offline: bool = Field(
+        description="True when the nearby official monitor had no reading in the 3 hours before "
+        "issued_at, so the forecast used the sensor and the weather alone (about 7% less "
+        "accurate on the final test, with the range still holding about 8 in 10)"
+    )
     hours: list[ForecastHour] = Field(description="One entry per hour ahead, soonest first")
 
 

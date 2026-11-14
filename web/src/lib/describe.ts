@@ -26,6 +26,10 @@ export function modelLabel(modelVersion: string): string {
   return version ? `${name} v${version}` : modelVersion;
 }
 
+/** Why a forecast made without the nearby monitor is less sure (checked on the final test). */
+export const MONITOR_OFFLINE_NOTE =
+  "The official monitor nearby hasn't reported recently, so this forecast relies on the sensor and the weather alone. That makes it a little less accurate; the range still holds the real value about 8 times in 10.";
+
 /** Why a forecast above 35.4 µg/m³ deserves less trust (ADR 0012), in the same words everywhere. */
 export const OUTSIDE_EXPERIENCE_NOTE =
   "The air is dirtier than any our forecast was trained on, such as wildfire smoke. The range is wider, and the forecast is a rough guide only.";

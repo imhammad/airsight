@@ -9,6 +9,7 @@ import { ErrorMessage, Loading } from "../components/Status";
 import { category } from "../lib/aqi";
 import {
   modelLabel,
+  MONITOR_OFFLINE_NOTE,
   NO_READING_NOTE,
   OUTSIDE_EXPERIENCE_NOTE,
   RAW_NOTE,
@@ -218,6 +219,9 @@ function ForecastDetails({
         <p className={styles.note}>
           This forecast was made over 6 hours ago, so it may be out of date.
         </p>
+      )}
+      {forecast.monitor_offline && (
+        <p className={styles.note}>{MONITOR_OFFLINE_NOTE}</p>
       )}
       {hours.some((hour) => hour.outside_experience) && (
         <p className={styles.note}>{OUTSIDE_EXPERIENCE_NOTE}</p>

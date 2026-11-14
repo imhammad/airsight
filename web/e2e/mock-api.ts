@@ -118,6 +118,7 @@ function forecast(sensor: SensorDetail): Schemas["Forecast"] | null {
     issued_at: hoursAgo(2),
     model_version: "airsight-forecast/1",
     stale: false,
+    monitor_offline: false,
     hours: Array.from({ length: 24 }, (_, index) => {
       const p50 = Math.round((latest.pm25 + 3 * Math.sin(index / 5)) * 10) / 10;
       return {
