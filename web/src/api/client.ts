@@ -13,6 +13,7 @@ export type SensorDetail = Schemas["SensorDetail"];
 export type NearbyReading = Schemas["NearbyReading"];
 export type ModelInfo = Schemas["ModelInfo"];
 export type Accuracy = Schemas["Accuracy"];
+export type ForecastAccuracy = Schemas["ForecastAccuracy"];
 export type Forecast = Schemas["Forecast"];
 export type ForecastHour = Schemas["ForecastHour"];
 export type Problem = Schemas["Problem"];
@@ -90,6 +91,8 @@ export const api = {
   model: () => get<"/v1/model">("/v1/model"),
   accuracy: (query: Query<"/v1/accuracy"> = {}) =>
     get<"/v1/accuracy">("/v1/accuracy", query),
+  forecastAccuracy: (query: Query<"/v1/accuracy/forecast"> = {}) =>
+    get<"/v1/accuracy/forecast">("/v1/accuracy/forecast", query),
 };
 
 /** Every sensor with its latest reading, following next_cursor until the last page. */

@@ -96,6 +96,9 @@ test("the accuracy and about pages are one tap away", async ({ page }) => {
   await expect(page.getByRole("list", { name: "Monitors" })).toContainText(
     "Showing raw",
   );
+  await expect(
+    page.getByRole("list", { name: "Forecast by hours ahead" }),
+  ).toContainText("13 to 24 hours ahead");
 
   await nav.getByRole("link", { name: "About" }).click();
   await expect(
