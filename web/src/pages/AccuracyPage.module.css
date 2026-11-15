@@ -140,6 +140,31 @@
   border: 2px solid var(--secondary);
 }
 
+/* The forecast is a second question, so it starts below a rule with its own heading */
+.forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+}
+
+.coverage {
+  padding-top: 4px;
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+
+.coverage strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .note {
   color: var(--secondary);
   font-size: 0.8125rem;

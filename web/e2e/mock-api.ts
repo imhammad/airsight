@@ -182,6 +182,51 @@ function accuracy(): Schemas["Accuracy"] {
   };
 }
 
+function forecastAccuracy(): Schemas["ForecastAccuracy"] {
+  const errors = (forecast: number, persistence: number) => ({
+    forecast,
+    persistence,
+    same_hour_yesterday: 3.9,
+  });
+  return {
+    model_version: "airsight-forecast/1",
+    start: hoursAgo(7 * 24),
+    end: hoursAgo(0),
+    hours: 9600,
+    headline_mae: errors(2.71, 3.18),
+    coverage: 0.79,
+    by_horizon: [
+      {
+        hours_ahead: "1-6",
+        hours: 2400,
+        mae: errors(2.38, 2.61),
+        coverage: 0.8,
+      },
+      {
+        hours_ahead: "7-12",
+        hours: 2400,
+        mae: errors(2.74, 3.27),
+        coverage: 0.79,
+      },
+      {
+        hours_ahead: "13-24",
+        hours: 4800,
+        mae: errors(2.86, 3.42),
+        coverage: 0.78,
+      },
+    ],
+    stations: ["Berkeley Aquatic Park", "Oakland West", "San Francisco"].map(
+      (station) => ({
+        station,
+        sensors: 3,
+        hours: 3200,
+        mae: errors(2.71, 3.18),
+        coverage: 0.79,
+      }),
+    ),
+  };
+}
+
 function problem(status: number, title: string): Schemas["Problem"] {
   return { type: "about:blank", title, status, detail: title, errors: null };
 }
@@ -193,6 +238,7 @@ function answer(path: string): [number, unknown] {
     return [200, { data: all, next_cursor: null }];
   if (path === "/v1/model") return [200, model];
   if (path === "/v1/accuracy") return [200, accuracy()];
+  if (path === "/v1/accuracy/forecast") return [200, forecastAccuracy()];
   const match = /^\/v1\/sensors\/([^/]+)(\/history|\/forecast)?$/.exec(path);
   const sensor =
     match && all.find((item) => item.id === decodeURIComponent(match[1]));
