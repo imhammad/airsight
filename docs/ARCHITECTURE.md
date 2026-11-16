@@ -53,7 +53,7 @@ flowchart LR
 | FastAPI | Read-only public API under `/v1`. | `airsight.api` |
 | Web app | Map, sensor pages and the accuracy page. | `web/` |
 
-Prometheus and Grafana join the stack in the observability phase.
+Prometheus, Alertmanager and Grafana join the stack in the observability phase ([ADR 0013](adr/0013-observability.md)).
 
 ## The regular cycle
 
