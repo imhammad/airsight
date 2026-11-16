@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Stage 1: build the virtual environment ----------
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 
 # Same uv version as on the dev machine, copied from its official image
 COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /bin/uv
@@ -22,7 +22,7 @@ COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
 # ---------- Stage 2: the small image that actually runs ----------
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 # LightGBM needs the OpenMP runtime, which the slim image leaves out
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 \
