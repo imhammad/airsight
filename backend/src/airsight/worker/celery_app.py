@@ -11,7 +11,9 @@ from celery.schedules import crontab
 from celery.signals import setup_logging, task_postrun, task_prerun
 
 from airsight.core.config import get_settings
+from airsight.core.db import get_engine
 from airsight.core.logging import configure_logging, current_task
+from airsight.worker import runs
 
 app = Celery("airsight", broker=get_settings().redis_url, include=["airsight.worker.tasks"])
 
@@ -69,10 +71,12 @@ def _setup_logging(loglevel: int | str | None = None, **_: Any) -> None:
 
 @task_prerun.connect
 def _task_started(task_id: str, task: Any, **_: Any) -> None:
-    """Every line logged while a task runs carries its name and ID."""
+    """Every line logged while a task runs carries its name and ID, and the run is recorded."""
     current_task.set((task.name, task_id))
+    runs.record_start(get_engine(), task_id, task.name)
 
 
 @task_postrun.connect
-def _task_finished(**_: Any) -> None:
+def _task_finished(task_id: str, retval: Any = None, state: str | None = None, **_: Any) -> None:
+    runs.record_finish(get_engine(), task_id, state, retval)
     current_task.set(None)
