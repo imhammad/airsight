@@ -163,26 +163,28 @@ def test_an_unreachable_database_says_so_instead_of_failing() -> None:
     assert value(samples, "airsight_queue_length") == 3.0  # Redis still answered
 
 
-def test_every_task_but_live_ingestion_records_its_run(engine: Engine) -> None:
-    runs.record_start(engine, "task-1", "airsight.check_quality")
+def test_every_task_but_the_self_recorded_ones_records_its_run(engine: Engine) -> None:
+    runs.record_start(engine, "task-1", "airsight.correct_readings")
     runs.record_finish(engine, "task-1", "SUCCESS", 8)
     runs.record_start(engine, "task-2", "airsight.issue_forecast")
     runs.record_finish(engine, "task-2", "FAILURE", RuntimeError("no weather"))
     runs.record_start(engine, "task-3", "airsight.ingest_live")  # records itself as "live"
     runs.record_finish(engine, "task-3", "SUCCESS", {"reference_rows": 5})
+    runs.record_start(engine, "task-4", "airsight.check_quality")  # records itself as "quality"
+    runs.record_finish(engine, "task-4", "SUCCESS", 8)
 
     with engine.connect() as connection:
         rows = connection.execute(
             text("""
                 SELECT DISTINCT ON (task) task, status, rows_upserted, error, finished_at
                 FROM ingestion_runs
-                WHERE task IN ('check_quality', 'issue_forecast', 'airsight.ingest_live')
+                WHERE task IN ('correct_readings', 'issue_forecast', 'ingest_live', 'check_quality')
                 ORDER BY task, id DESC
             """)
         ).all()
     found = {row.task: row for row in rows}
-    assert set(found) == {"check_quality", "issue_forecast"}
-    assert (found["check_quality"].status, found["check_quality"].rows_upserted) == (
+    assert set(found) == {"correct_readings", "issue_forecast"}
+    assert (found["correct_readings"].status, found["correct_readings"].rows_upserted) == (
         "succeeded",
         8,
     )
@@ -209,7 +211,7 @@ def test_rows_come_from_what_the_task_returns(result: object, rows: int) -> None
 def test_a_recording_failure_never_breaks_the_job() -> None:
     broken = create_engine("postgresql+psycopg://airsight:airsight@127.0.0.1:1/airsight")
 
-    runs.record_start(broken, "task-x", "airsight.check_quality")  # logs a warning, no raise
+    runs.record_start(broken, "task-x", "airsight.correct_readings")  # logs a warning, no raise
     runs.record_finish(broken, "task-x", "SUCCESS", 1)
 
 

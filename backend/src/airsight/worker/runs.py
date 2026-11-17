@@ -14,9 +14,10 @@ from airsight.ingestion import store
 
 logger = logging.getLogger(__name__)
 
-# Live ingestion records its own run as "live", inside its database lock, so a run skipped
-# because another holds the lock isn't counted (ingestion/live.py)
-SELF_RECORDED = {"airsight.ingest_live"}
+# Tasks that already record their own run. Live ingestion records "live" inside its database
+# lock, so a run skipped because another holds the lock isn't counted (ingestion/live.py).
+# The quality check records "quality" with the number of sensors checked (ingestion/quality.py).
+SELF_RECORDED = {"airsight.ingest_live", "airsight.check_quality"}
 
 # Runs started in this worker process and not finished yet, by Celery task ID
 _open_runs: dict[str, int] = {}
