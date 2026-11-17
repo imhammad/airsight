@@ -1,0 +1,11 @@
+# Until we deploy, firing alerts only show on Alertmanager's page (localhost:9093) and in
+# Grafana. Phase 10 adds a real receiver (ADR 0013).
+route:
+  receiver: nobody
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: nobody

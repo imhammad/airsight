@@ -53,8 +53,15 @@ flowchart LR
 | FastAPI | Read-only public API under `/v1`, plus its own request metrics at `/metrics`. | `airsight.api` |
 | Exporter | Data freshness, job runs, queue length and live accuracy for Prometheus, read from the database and Redis on each scrape ([ADR 0013](adr/0013-observability.md)). | `airsight.observability` |
 | Web app | Map, sensor pages and the accuracy page. | `web/` |
+| Prometheus | Scrapes the API and the exporter every 15 seconds, keeps 30 days, evaluates alert rules. | `infra/prometheus` |
+| Alertmanager | Groups firing alerts. No outside receiver until we deploy (Phase 10). | `infra/alertmanager` |
+| Grafana | Pipeline, API and Model dashboards, provisioned from files. | `infra/grafana` |
 
-Prometheus, Alertmanager and Grafana join the stack in the observability phase ([ADR 0013](adr/0013-observability.md)).
+Monitoring follows [ADR 0013](adr/0013-observability.md). Locally, Grafana is at
+<http://localhost:3000>, Prometheus at <http://localhost:9090> and Alertmanager at
+<http://localhost:9093>. Dashboards are JSON files in `infra/grafana/dashboards`: changes made in
+Grafana's editor are not saved, so edit the file (or export the dashboard into it) and restart
+Grafana.
 
 ## The regular cycle
 

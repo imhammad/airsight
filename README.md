@@ -93,13 +93,15 @@ docker compose up -d --build --wait
 curl localhost:8000/v1/health
 ```
 
-Interactive API docs: <http://localhost:8000/docs>. Stop everything with `docker compose down`.
+Interactive API docs: <http://localhost:8000/docs>. Dashboards: <http://localhost:3000> (Grafana).
+Stop everything with `docker compose down`.
 
 ## Repository layout
 
 ```
 backend/     Python package `airsight`: API, workers, ingestion, ML (uv, FastAPI)
 web/         Frontend (Vite, React, TypeScript)
+infra/       Prometheus, Alertmanager and Grafana config, dashboards as JSON
 notebooks/   Exploration scripts, never imported by the services
 docs/        Architecture decisions (ADRs) and the engineering log
 ```

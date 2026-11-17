@@ -6,6 +6,18 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-17: Two columns of the jobs table stayed empty in Grafana
+
+- **Symptom:** in the Pipeline dashboard's "Latest run of each job" table, the "Took" and "Rows
+  written" columns were blank, while the other columns showed values.
+- **Cause:** the table merges five Prometheus queries on their labels. A query that is only a
+  metric name keeps the `__name__` label in table format; one with arithmetic
+  (`time() - ...`) drops it. The rows didn't share the same labels, so the merge couldn't line
+  them up.
+- **Fix:** wrapped every query in `max by (task) (...)`, so each returns only the `task` label.
+- **Lesson:** when joining queries in Grafana, make their label sets identical on purpose. Don't
+  count on them happening to match.
+
 ### 2026-11-17: The quality check was recorded twice
 
 - **Symptom:** after the exporter went live, `/metrics` showed two jobs for one task:

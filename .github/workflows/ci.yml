@@ -57,6 +57,19 @@ jobs:
         run: curl --fail --silent --show-error localhost:8000/v1/health
       - name: Read the exporter's metrics
         run: curl --fail --silent --show-error localhost:9108/metrics | grep '^airsight_exporter_up'
+      - name: Check that Prometheus scrapes the API and the exporter
+        # Prometheus scrapes every 15 seconds, so give it a moment after start
+        run: |
+          for attempt in $(seq 12); do
+            up=$(curl --silent -G localhost:9090/api/v1/query --data-urlencode 'query=sum(up{job=~"api|exporter"})' | jq -r '.data.result[0].value[1]')
+            [ "$up" = "2" ] && echo "Both targets up" && exit 0
+            sleep 5
+          done
+          echo "Prometheus does not see both targets up"; exit 1
+      - name: Check that Grafana loaded the three dashboards
+        run: |
+          count=$(curl --fail --silent 'localhost:3000/api/search?tag=airsight' | jq length)
+          echo "$count dashboards"; [ "$count" = "3" ]
       - name: Show logs
         if: always()
         run: docker compose logs

@@ -1,0 +1,350 @@
+{
+  "uid": "airsight-api",
+  "title": "API",
+  "description": "Traffic, errors and speed of the public API.",
+  "tags": ["airsight"],
+  "editable": false,
+  "graphTooltip": 1,
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests per second",
+      "description": "All API requests over the last 5 minutes, /metrics excluded.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(rate(airsight_api_requests_total{route!=\"/metrics\"}[5m]))",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#1e5a85", "value": null}]},
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Server errors",
+      "description": "Share of requests answered with a 5xx over the last 10 minutes. Above 1% fires ApiErrors.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "(sum(rate(airsight_api_requests_total{status=~\"5..\"}[10m])) or vector(0)) / sum(rate(airsight_api_requests_total[10m]))",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 0.005},
+              {"color": "#c43f3a", "value": 0.01}
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 2,
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "p95 latency",
+      "description": "95% of requests over the last 5 minutes were answered faster than this.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(airsight_api_request_duration_seconds_bucket{route!=\"/metrics\"}[5m])))",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 0.25},
+              {"color": "#c43f3a", "value": 1}
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 3,
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Cache hit rate",
+      "description": "Share of cacheable requests the Redis cache answered over the last hour.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(rate(airsight_api_cache_total{result=\"hit\"}[1h])) / sum(rate(airsight_api_cache_total[1h]))",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#1e5a85", "value": null}]},
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 4,
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4}
+    },
+    {"id": 5, "type": "row", "title": "Traffic", "gridPos": {"x": 0, "y": 4, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Requests per second by route",
+      "description": "Route templates, so /v1/sensors/{sensor_id} is one line however many sensors are asked for.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(airsight_api_requests_total{route!=\"/metrics\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {"lineWidth": 2, "showPoints": "never"},
+          "min": 0,
+          "color": {"mode": "shades", "fixedColor": "#1e5a85"}
+        },
+        "overrides": []
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 6,
+      "gridPos": {"x": 0, "y": 5, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Responses by status",
+      "description": "429 is the per-IP rate limit (60 a minute); 5xx are our errors.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(airsight_api_requests_total{route!=\"/metrics\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {"mode": "normal"},
+            "fillOpacity": 60
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "200"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "304"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#4f7f9e"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "404"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#b4b8bd"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "422"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "429"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#d9a92e"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "500"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#c43f3a"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 7,
+      "gridPos": {"x": 12, "y": 5, "w": 12, "h": 8}
+    },
+    {"id": 8, "type": "row", "title": "Speed", "gridPos": {"x": 0, "y": 13, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Latency",
+      "description": "Median and 95th percentile time to answer, all routes but /metrics.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(airsight_api_request_duration_seconds_bucket{route!=\"/metrics\"}[$__rate_interval])))",
+          "refId": "A",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(airsight_api_request_duration_seconds_bucket{route!=\"/metrics\"}[$__rate_interval])))",
+          "refId": "B",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "s", "custom": {"lineWidth": 2, "showPoints": "never"}, "min": 0},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "p50"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "p95"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 9,
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache",
+      "description": "Hits are answered from Redis; misses query the database and fill the cache.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(airsight_api_cache_total[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "reqps", "custom": {"lineWidth": 2, "showPoints": "never"}, "min": 0},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "hit"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "miss"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#b4b8bd"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 10,
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8}
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "API process",
+      "gridPos": {"x": 0, "y": 22, "w": 24, "h": 1}
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "Resident memory of the API process.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"api\"}",
+          "refId": "A",
+          "legendFormat": "memory"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "bytes", "custom": {"lineWidth": 2, "showPoints": "never"}, "min": 0},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "memory"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 12,
+      "gridPos": {"x": 0, "y": 23, "w": 12, "h": 7}
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Share of one CPU core the API process uses.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{job=\"api\"}[$__rate_interval])",
+          "refId": "A",
+          "legendFormat": "cpu"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit", "custom": {"lineWidth": 2, "showPoints": "never"}, "min": 0},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "cpu"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 13,
+      "gridPos": {"x": 12, "y": 23, "w": 12, "h": 7}
+    }
+  ],
+  "links": [{"type": "dashboards", "tags": ["airsight"], "title": "AirSight", "keepTime": true}]
+}

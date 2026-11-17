@@ -1,0 +1,311 @@
+{
+  "uid": "airsight-model",
+  "title": "Model",
+  "description": "Live accuracy of the correction model and the forecast.",
+  "tags": ["airsight"],
+  "editable": false,
+  "graphTooltip": 1,
+  "timezone": "browser",
+  "time": {"from": "now-7d", "to": "now"},
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Correction, 14-day MAE",
+      "description": "Live error of the champion against the official monitors, on hours it never trained on. Lower is better.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_live_mae{model=\"corrected\"}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#1e5a85", "value": null}]},
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 5, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Raw sensors, 14-day MAE",
+      "description": "The same hours, uncorrected. The correction must stay below this (CorrectionWorseThanRaw).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_live_mae{model=\"raw\"}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#7d838a", "value": null}]},
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 2,
+      "gridPos": {"x": 5, "y": 0, "w": 5, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Monitors on raw",
+      "description": "Official monitors whose nearby sensors show the raw reading because the correction lost there (ADR 0010).",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_monitors_on_raw",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 1},
+              {"color": "#c43f3a", "value": 3}
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 3,
+      "gridPos": {"x": 10, "y": 0, "w": 4, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Forecast, 7-day MAE",
+      "description": "Live error of the 24-hour forecast's median. Lower is better.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_forecast_live_mae{model=\"forecast\"}",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "#1e5a85", "value": null}]},
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 4,
+      "gridPos": {"x": 14, "y": 0, "w": 5, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Forecast range coverage",
+      "description": "Share of hours inside the forecast's 10th to 90th percentile. The aim is 80%.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_forecast_coverage", "refId": "A", "instant": true, "range": false}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#d9a92e", "value": null},
+              {"color": "#4e9f5e", "value": 0.7},
+              {"color": "#d9a92e", "value": 0.9}
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 5,
+      "gridPos": {"x": 19, "y": 0, "w": 5, "h": 4}
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Correction",
+      "gridPos": {"x": 0, "y": 4, "w": 24, "h": 1}
+    },
+    {
+      "type": "timeseries",
+      "title": "Correction against the baselines (µg/m³)",
+      "description": "Mean absolute error over the last 14 days, the same number as the public accuracy page.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_model_live_mae", "refId": "A", "legendFormat": "{{model}}"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {"lineWidth": 2, "showPoints": "never"},
+          "decimals": 2,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "corrected"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "raw"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "epa"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#b4b8bd"}},
+              {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [6, 4]}}
+            ]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 7,
+      "gridPos": {"x": 0, "y": 5, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Monitors on raw",
+      "description": "Monitors where the correction lost to raw over 14 days. 3 or more for 7 days fires MonitorsOnRaw.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_model_monitors_on_raw", "refId": "A", "legendFormat": "monitors"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never",
+            "thresholdsStyle": {"mode": "dashed"},
+            "axisSoftMax": 5
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "transparent", "value": null}, {"color": "#c43f3a", "value": 3}]
+          },
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "monitors"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 8,
+      "gridPos": {"x": 12, "y": 5, "w": 12, "h": 8}
+    },
+    {"id": 9, "type": "row", "title": "Forecast", "gridPos": {"x": 0, "y": 13, "w": 24, "h": 1}},
+    {
+      "type": "timeseries",
+      "title": "Forecast against the baselines (µg/m³)",
+      "description": "Mean absolute error over the last 7 days. Persistence repeats the latest reading; the other repeats the same hour yesterday.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_forecast_live_mae", "refId": "A", "legendFormat": "{{model}}"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {"lineWidth": 2, "showPoints": "never"},
+          "decimals": 2,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "forecast"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "persistence"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "same_hour_yesterday"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "#b4b8bd"}},
+              {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [6, 4]}}
+            ]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 10,
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Forecast range coverage",
+      "description": "Share of scored hours inside the p10 to p90 range. Below 80% the range is too narrow, above it too wide.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_forecast_coverage", "refId": "A", "legendFormat": "coverage"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {"lineWidth": 2, "showPoints": "never", "thresholdsStyle": {"mode": "dashed"}},
+          "min": 0.5,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "transparent", "value": null}, {"color": "#7d838a", "value": 0.8}]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "coverage"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 11,
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8}
+    }
+  ],
+  "links": [{"type": "dashboards", "tags": ["airsight"], "title": "AirSight", "keepTime": true}]
+}
