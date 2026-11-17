@@ -6,6 +6,17 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-17: The quality check was recorded twice
+
+- **Symptom:** after the exporter went live, `/metrics` showed two jobs for one task:
+  `quality` (41 rows) and `check_quality` (8 rows), started a millisecond apart.
+- **Cause:** the new Celery signal records every task's run, but `run_quality_check` already
+  recorded its own run as "quality". Only live ingestion had been marked as self-recorded.
+- **Fix:** added `airsight.check_quality` to `SELF_RECORDED` in `worker/runs.py`, kept the old
+  "quality" name so its history stays in one series, and deleted the `check_quality` rows.
+- **Lesson:** before adding a generic hook, list every place that already does the same job by
+  hand (`grep -rn start_run`). A test of the hook alone can't see the duplicate.
+
 ### 2026-11-13: Official readings stopped, and a gap in them never filled
 
 - **Symptom:** the live forecast score showed 0 hours. The newest official reading was
