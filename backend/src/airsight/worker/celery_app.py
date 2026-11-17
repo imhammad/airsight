@@ -8,10 +8,10 @@ from typing import Any
 
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import after_setup_logger, after_setup_task_logger
+from celery.signals import setup_logging, task_postrun, task_prerun
 
 from airsight.core.config import get_settings
-from airsight.core.logging import quiet_request_logs
+from airsight.core.logging import configure_logging, current_task
 
 app = Celery("airsight", broker=get_settings().redis_url, include=["airsight.worker.tasks"])
 
@@ -61,8 +61,18 @@ app.conf.update(
 )
 
 
-@after_setup_logger.connect
-@after_setup_task_logger.connect
-def _quiet_request_logs(**_: Any) -> None:
-    """Celery sets up its own logging, so the AirNow key protection must be applied again."""
-    quiet_request_logs()
+@setup_logging.connect
+def _setup_logging(loglevel: int | str | None = None, **_: Any) -> None:
+    """Use our JSON logging instead of Celery's; connecting here stops Celery setting up its own."""
+    configure_logging(loglevel or "INFO")
+
+
+@task_prerun.connect
+def _task_started(task_id: str, task: Any, **_: Any) -> None:
+    """Every line logged while a task runs carries its name and ID."""
+    current_task.set((task.name, task_id))
+
+
+@task_postrun.connect
+def _task_finished(**_: Any) -> None:
+    current_task.set(None)
