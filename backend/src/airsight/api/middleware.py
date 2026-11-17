@@ -25,7 +25,7 @@ from airsight.core.cache import CACHE_PREFIX
 logger = logging.getLogger(__name__)
 
 WINDOW_SECONDS = 60
-UNLIMITED_PATHS = {"/v1/health"}  # health checks must never be throttled
+UNLIMITED_PATHS = {"/v1/health", "/metrics"}  # health checks and Prometheus are never throttled
 
 # How long each kind of answer stays fresh (ADR 0008)
 LATEST_PATHS = {"/v1/readings/latest", "/v1/readings/nearest", "/v1/sensors"}

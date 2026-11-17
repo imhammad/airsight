@@ -229,6 +229,15 @@ it finds the request, and any error behind a 500, in the logs. A client can send
 anything else is replaced with a new ID. Logs record the method, path, status and duration of a
 request, never its query string, which can hold a person's location.
 
+## Metrics (not part of the public API)
+
+`GET /metrics` serves Prometheus metrics for our own monitoring ([ADR 0013](adr/0013-observability.md)):
+requests by route template and status (`airsight_api_requests_total`), their duration
+(`airsight_api_request_duration_seconds`), cache hits and misses (`airsight_api_cache_total`), and the
+process's memory and CPU. It is outside `/v1`, not in the OpenAPI contract, never rate limited, and
+blocked at the reverse proxy once deployed. Routes are labelled by template, such as
+`/v1/sensors/{sensor_id}`, and any unknown path as `unmatched`, so the number of series stays small.
+
 ## Compatibility
 
 Within `/v1`, changes are additive only: new endpoints, new optional parameters and new fields.

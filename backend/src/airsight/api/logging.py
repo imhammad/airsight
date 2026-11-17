@@ -15,7 +15,7 @@ logger = logging.getLogger("airsight.api.access")
 HEADER = "X-Request-ID"
 # A caller's own ID is kept only if it is short and plain, so it can't forge log lines
 VALID_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
-QUIET_PATHS = {"/v1/health"}  # polled by Docker every few seconds
+QUIET_PATHS = {"/v1/health", "/metrics"}  # polled by Docker and Prometheus every few seconds
 
 
 def incoming_id(scope: Scope) -> str:
