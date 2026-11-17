@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from airsight.api.schemas import Problem
+from airsight.core.logging import request_id
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,12 @@ async def _invalid_request(request: Request, error: Exception) -> JSONResponse:
 async def _unexpected(request: Request, error: Exception) -> JSONResponse:
     # The details go to our logs, never to the client: no stack traces or SQL in responses
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
-    return problem(500, "Something went wrong on our side")
+    # This handler runs outside our middleware, so it returns the request ID itself:
+    # it is what a user can quote to find this error in the logs
+    rid = request_id.get()
+    return problem(
+        500, "Something went wrong on our side", headers={"X-Request-ID": rid} if rid else None
+    )
 
 
 def install(app: FastAPI) -> None:

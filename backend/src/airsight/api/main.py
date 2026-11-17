@@ -5,10 +5,12 @@ from importlib.metadata import version
 from fastapi import FastAPI
 
 from airsight.api import problems
+from airsight.api.logging import RequestLogMiddleware
 from airsight.api.middleware import CacheMiddleware, RateLimitMiddleware
 from airsight.api.routes import health, model, readings, sensors
 from airsight.api.store import RedisStore, Store
 from airsight.core.config import get_settings
+from airsight.core.logging import configure_logging
 
 
 def create_app(
@@ -28,6 +30,8 @@ def create_app(
     # The last one added runs first: the rate limit counts every request, cached or not
     app.add_middleware(CacheMiddleware, store=store, clock=clock)
     app.add_middleware(RateLimitMiddleware, store=store, limit=limit, clock=clock)
+    # Outermost, so refused and cached requests get an ID and a log line too
+    app.add_middleware(RequestLogMiddleware)
     app.include_router(health.router, prefix="/v1", responses=problems.responses(500))
     # Documented on every data endpoint, replacing FastAPI's default validation error shape
     errors = problems.responses(422, 429, 500)
@@ -36,4 +40,5 @@ def create_app(
     return app
 
 
+configure_logging()
 app = create_app()

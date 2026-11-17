@@ -1,6 +1,7 @@
 """Application settings, read from environment variables and, for local development, .env."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
 
     # Public API (ADR 0008)
     rate_limit_per_minute: int = 60
+
+    # One JSON object per line (ADR 0013); "text" is easier to read in a terminal
+    log_format: Literal["json", "text"] = "json"
 
 
 @lru_cache

@@ -220,6 +220,15 @@ just 127.0.0.1), so a client can't dodge the limit by sending a made-up header. 
 
 If Redis is unavailable, the API keeps answering without the cache and without the limit.
 
+## Request IDs
+
+Every response carries `X-Request-ID`, and every log line written while answering that request
+carries the same ID ([ADR 0013](adr/0013-observability.md)). Quote it when reporting a problem:
+it finds the request, and any error behind a 500, in the logs. A client can send its own
+`X-Request-ID` (up to 64 letters, digits, `.`, `_` or `-`) to follow a request across systems;
+anything else is replaced with a new ID. Logs record the method, path, status and duration of a
+request, never its query string, which can hold a person's location.
+
 ## Compatibility
 
 Within `/v1`, changes are additive only: new endpoints, new optional parameters and new fields.

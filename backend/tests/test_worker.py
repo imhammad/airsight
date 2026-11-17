@@ -2,8 +2,9 @@ import logging
 
 import pytest
 from celery.schedules import crontab
-from celery.signals import after_setup_logger
+from celery.signals import setup_logging, task_postrun, task_prerun
 
+from airsight.core.logging import HANDLER_NAME, JsonFormatter, current_task
 from airsight.ingestion import live
 from airsight.ingestion.live import LiveReport
 from airsight.worker import tasks
@@ -39,10 +40,24 @@ def test_task_runs_live_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["points_spent"] == 242
 
 
-def test_worker_logging_hides_request_urls(caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.INFO)  # like the worker's --loglevel=INFO
+def test_worker_logs_json_and_hides_request_urls() -> None:
     logging.getLogger("httpx2").setLevel(logging.NOTSET)
 
-    after_setup_logger.send(sender=None, logger=logging.getLogger(), loglevel=logging.INFO)
+    # What Celery sends at start-up, with the worker's --loglevel=INFO
+    setup_logging.send(sender=None, loglevel=logging.INFO, logfile=None, format="", colorize=False)
 
+    ours = [h for h in logging.getLogger().handlers if h.get_name() == HANDLER_NAME]
+    assert len(ours) == 1
+    assert isinstance(ours[0].formatter, JsonFormatter)
     assert logging.getLogger("httpx2").getEffectiveLevel() >= logging.WARNING
+
+
+def test_lines_logged_during_a_task_name_it() -> None:
+    task = app.tasks["airsight.ingest_live"]
+
+    task_prerun.send(sender=task, task_id="abc-123", task=task, args=(), kwargs={})
+    during = current_task.get()
+    task_postrun.send(sender=task, task_id="abc-123", task=task, args=(), kwargs={}, retval=None)
+
+    assert during == ("airsight.ingest_live", "abc-123")
+    assert current_task.get() is None
