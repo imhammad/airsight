@@ -48,6 +48,20 @@ services:
       start_period: 10s
       retries: 3
 
+  exporter:
+    <<: *backend
+    # Pipeline and model metrics for Prometheus, read from the database (ADR 0013)
+    command: ["python", "-m", "airsight.observability.exporter"]
+    ports:
+      - "127.0.0.1:9108:9108"
+    # The image's own health check calls the API's port, so the exporter checks its own
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9108/metrics')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+
   mlflow:
     image: ghcr.io/mlflow/mlflow:v3.18.0  # same version as the mlflow-skinny client
     # Runs and metrics in a SQLite file, model files next to it, all in one volume.

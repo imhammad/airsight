@@ -55,6 +55,8 @@ jobs:
         run: docker compose up -d --build --wait
       - name: Call the health endpoint
         run: curl --fail --silent --show-error localhost:8000/v1/health
+      - name: Read the exporter's metrics
+        run: curl --fail --silent --show-error localhost:9108/metrics | grep '^airsight_exporter_up'
       - name: Show logs
         if: always()
         run: docker compose logs

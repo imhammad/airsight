@@ -50,7 +50,8 @@ flowchart LR
 | Redis | Celery broker (database 0) and API cache (database 1). | |
 | MLflow | Experiment tracking and the model registry. | |
 | Training command | Builds training pairs, trains, evaluates, registers a model. Not a Celery task. | `airsight.ml` |
-| FastAPI | Read-only public API under `/v1`. | `airsight.api` |
+| FastAPI | Read-only public API under `/v1`, plus its own request metrics at `/metrics`. | `airsight.api` |
+| Exporter | Data freshness, job runs, queue length and live accuracy for Prometheus, read from the database and Redis on each scrape ([ADR 0013](adr/0013-observability.md)). | `airsight.observability` |
 | Web app | Map, sensor pages and the accuracy page. | `web/` |
 
 Prometheus, Alertmanager and Grafana join the stack in the observability phase ([ADR 0013](adr/0013-observability.md)).
