@@ -1,0 +1,402 @@
+{
+  "uid": "airsight-pipeline",
+  "title": "Pipeline",
+  "description": "Is the data arriving and are the jobs running?",
+  "tags": ["airsight"],
+  "editable": false,
+  "graphTooltip": 1,
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "version": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Exporter",
+      "description": "1 when every query of the last scrape worked. 0 means the database, Redis or MLflow could not be read: check the exporter's logs.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_exporter_up", "refId": "A", "instant": true, "range": false}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#c43f3a", "value": null}, {"color": "#4e9f5e", "value": 1}]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "Failing", "color": "#c43f3a"},
+                "1": {"text": "Working", "color": "#4e9f5e"}
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 1,
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Oldest hourly source",
+      "description": "Age of the most out-of-date source among those refreshed every 3 hours. A run every 3 hours plus publishing delay keeps this under about 4.5 hours.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "max(time() - airsight_data_newest_timestamp_seconds{source!=\"day_ahead_weather\"}) / 3600",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 5},
+              {"color": "#c43f3a", "value": 6}
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 2,
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Tasks waiting",
+      "description": "Tasks in the Celery queue. The worker runs one at a time, so a few for a minute is normal; a growing number means the worker is stuck or down.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_queue_length", "refId": "A", "instant": true, "range": false}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 5},
+              {"color": "#c43f3a", "value": 20}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 3,
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Failed jobs",
+      "description": "Jobs whose latest finished run failed.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(airsight_job_last_failed) or vector(0)",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#4e9f5e", "value": null}, {"color": "#c43f3a", "value": 1}]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 4,
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "Data freshness",
+      "gridPos": {"x": 0, "y": 4, "w": 24, "h": 1}
+    },
+    {
+      "type": "bargauge",
+      "title": "How old the newest data is",
+      "description": "Hours since the newest stored row of each source. Hourly sources are fetched every 3 hours; day-ahead weather once a day at 04:45 UTC.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "(time() - airsight_data_newest_timestamp_seconds) / 3600",
+          "refId": "A",
+          "legendFormat": "{{source}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "min": 0,
+          "max": 30,
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "#4e9f5e", "value": null},
+              {"color": "#d9a92e", "value": 5},
+              {"color": "#c43f3a", "value": 6}
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "day_ahead_weather"},
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {"color": "#4e9f5e", "value": null},
+                    {"color": "#d9a92e", "value": 26},
+                    {"color": "#c43f3a", "value": 27}
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "reduceOptions": {"calcs": ["lastNotNull"]}
+      },
+      "id": 6,
+      "gridPos": {"x": 0, "y": 5, "w": 10, "h": 9}
+    },
+    {
+      "type": "timeseries",
+      "title": "Age of the hourly sources over time",
+      "description": "Each line rises until the next run, then drops. A line that keeps rising past the dashed line is a source that stopped.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "(time() - airsight_data_newest_timestamp_seconds{source!=\"day_ahead_weather\"}) / 3600",
+          "refId": "A",
+          "legendFormat": "{{source}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "custom": {"lineWidth": 2, "showPoints": "never", "thresholdsStyle": {"mode": "dashed"}},
+          "decimals": 0,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "transparent", "value": null}, {"color": "#c43f3a", "value": 6}]
+          },
+          "max": 8
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "purpleair"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "airnow"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#a0522d"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "weather"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "corrected"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#4f7f9e"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "forecast"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#6b5b8c"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 7,
+      "gridPos": {"x": 10, "y": 5, "w": 14, "h": 9}
+    },
+    {"id": 8, "type": "row", "title": "Jobs", "gridPos": {"x": 0, "y": 14, "w": 24, "h": 1}},
+    {
+      "type": "table",
+      "title": "Latest run of each job",
+      "description": "From ingestion_runs, which every scheduled task writes. Backfills are manual and only run when you start them.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "max by (task) (time() - airsight_job_last_success_timestamp_seconds)",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (task) (time() - airsight_job_last_start_timestamp_seconds)",
+          "refId": "B",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (task) (airsight_job_last_failed)",
+          "refId": "C",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (task) (airsight_job_last_duration_seconds)",
+          "refId": "D",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "expr": "max by (task) (airsight_job_last_rows)",
+          "refId": "E",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {"id": "merge", "options": {}},
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true},
+            "indexByName": {
+              "task": 0,
+              "Value #C": 1,
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #D": 4,
+              "Value #E": 5
+            },
+            "renameByName": {
+              "task": "Job",
+              "Value #A": "Last success",
+              "Value #B": "Last start",
+              "Value #C": "Latest run",
+              "Value #D": "Took",
+              "Value #E": "Rows written"
+            }
+          }
+        },
+        {"id": "sortBy", "options": {"sort": [{"field": "Last start"}]}}
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Last success"},
+            "properties": [{"id": "unit", "value": "s"}, {"id": "displayName", "value": "Last success (ago)"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Last start"},
+            "properties": [{"id": "unit", "value": "s"}, {"id": "displayName", "value": "Last start (ago)"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Took"},
+            "properties": [{"id": "unit", "value": "s"}, {"id": "decimals", "value": 1}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Rows written"},
+            "properties": [{"id": "unit", "value": "short"}, {"id": "decimals", "value": 0}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Latest run"},
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {"text": "Succeeded", "color": "#4e9f5e"},
+                      "1": {"text": "Failed", "color": "#c43f3a"}
+                    }
+                  }
+                ]
+              },
+              {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+            ]
+          }
+        ]
+      },
+      "options": {"cellHeight": "sm"},
+      "id": 9,
+      "gridPos": {"x": 0, "y": 15, "w": 16, "h": 9}
+    },
+    {
+      "type": "timeseries",
+      "title": "Tasks waiting in the queue",
+      "description": "Celery's Redis queue. It should return to 0 within a minute of each run.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "airsight_queue_length", "refId": "A", "legendFormat": "waiting"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {"lineWidth": 2, "showPoints": "never"},
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "waiting"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 10,
+      "gridPos": {"x": 16, "y": 15, "w": 8, "h": 9}
+    }
+  ],
+  "links": [{"type": "dashboards", "tags": ["airsight"], "title": "AirSight", "keepTime": true}]
+}

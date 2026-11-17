@@ -1,0 +1,13 @@
+# Grafana reads every panel from Prometheus. The fixed uid lets the dashboard files name it.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s  # the scrape interval, so $__rate_interval is never too short

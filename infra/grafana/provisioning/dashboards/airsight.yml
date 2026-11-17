@@ -1,0 +1,11 @@
+# The dashboards are files in infra/grafana/dashboards, reviewed like code (ADR 0013).
+# Changes made in Grafana's editor are not saved: export the JSON into that folder instead.
+apiVersion: 1
+
+providers:
+  - name: AirSight
+    folder: AirSight
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
