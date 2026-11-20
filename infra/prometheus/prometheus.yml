@@ -4,6 +4,10 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# Alert rules and their unit tests live next to this file (rules/, tests/)
+rule_files:
+  - rules/*.yml
+
 alerting:
   alertmanagers:
     - static_configs:

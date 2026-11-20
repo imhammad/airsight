@@ -94,6 +94,7 @@ curl localhost:8000/v1/health
 ```
 
 Interactive API docs: <http://localhost:8000/docs>. Dashboards: <http://localhost:3000> (Grafana).
+When an alert fires: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 Stop everything with `docker compose down`.
 
 ## Repository layout

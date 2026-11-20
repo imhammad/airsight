@@ -63,6 +63,9 @@ Monitoring follows [ADR 0013](adr/0013-observability.md). Locally, Grafana is at
 Grafana's editor are not saved, so edit the file (or export the dashboard into it) and restart
 Grafana.
 
+Alert rules are in `infra/prometheus/rules`, with unit tests that CI runs with `promtool`. What
+to do when one fires is in the [runbook](RUNBOOK.md).
+
 ## The regular cycle
 
 ```mermaid
