@@ -1,13 +1,16 @@
 import logging
+from collections.abc import Iterator
 
 import pytest
+from celery.exceptions import Retry
 from celery.schedules import crontab
 from celery.signals import setup_logging, task_postrun, task_prerun
 
 from airsight.core.logging import HANDLER_NAME, JsonFormatter, current_task
 from airsight.ingestion import live
 from airsight.ingestion.live import LiveReport
-from airsight.worker import tasks
+from airsight.ml import forecast_batch
+from airsight.worker import runs, tasks
 from airsight.worker.celery_app import app
 
 
@@ -61,3 +64,55 @@ def test_lines_logged_during_a_task_name_it() -> None:
 
     assert during == ("airsight.ingest_live", "abc-123")
     assert current_task.get() is None
+
+
+class FakeForecast:
+    """Stands in for forecast_latest: returns the given hour counts in turn and counts its calls."""
+
+    def __init__(self, counts: Iterator[int]) -> None:
+        self.counts = counts
+        self.calls = 0
+
+    def __call__(self, engine: object) -> int:
+        self.calls += 1
+        return next(self.counts)
+
+
+@pytest.fixture
+def no_run_records(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tasks, "get_engine", lambda: None)
+    monkeypatch.setattr(runs, "record_start", lambda *_: None)
+    monkeypatch.setattr(runs, "record_finish", lambda *_: None)
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_the_forecast_waits_for_the_readings_after_a_wake_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The first two tries run before live ingestion has loaded the issue hour
+    forecast = FakeForecast(iter([0, 0, 720]))
+    monkeypatch.setattr(forecast_batch, "forecast_latest", forecast)
+
+    result = tasks.issue_forecast.apply()
+
+    assert result.get() == 720
+    assert forecast.calls == 3
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_the_forecast_fails_when_the_readings_never_come(monkeypatch: pytest.MonkeyPatch) -> None:
+    forecast = FakeForecast(iter([0] * 10))
+    monkeypatch.setattr(forecast_batch, "forecast_latest", forecast)
+
+    result = tasks.issue_forecast.apply()
+
+    assert result.failed()
+    assert isinstance(result.result, tasks.NoReadingsYetError)
+    assert forecast.calls == 1 + tasks.FORECAST_RETRIES
+    assert tasks.FORECAST_RETRIES * tasks.FORECAST_RETRY_SECONDS == 60 * 60  # gives up after 1 hour
+
+
+def test_a_retried_attempt_is_recorded_with_its_reason() -> None:
+    assert runs.error_name(Retry(exc=tasks.NoReadingsYetError())) == "NoReadingsYetError"
+    assert runs.error_name(Retry()) == "Retry"
+    assert runs.error_name(RuntimeError("no weather")) == "RuntimeError"

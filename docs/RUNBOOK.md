@@ -39,7 +39,8 @@ stopped and every run still reported success.
    - **All of them:** the worker or beat is down, or the laptop was asleep. Go to
      [JobFailing](#jobfailing).
    - **Only `corrected` or `forecast`:** their job failed, or their input (PurpleAir, AirNow,
-     weather) is stale too.
+     weather) is stale too. A forecast that finds no readings retries for an hour before it
+     fails (`NoReadingsYetError`), so right after the laptop wakes, give it that hour.
    - **Only one outside source:** that provider has a problem. Keep reading.
 2. See what live ingestion says about that source:
 
