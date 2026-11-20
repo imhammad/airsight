@@ -58,15 +58,25 @@ stays. Docker keeps the logs; collecting them centrally (Loki or similar) waits 
 **Dashboards and alerts.** Prometheus, Alertmanager and Grafana join `docker-compose.yml`, with
 every dashboard, data source and alert rule kept as files in `infra/` so they are reviewed like
 code. Three dashboards: system (API traffic, errors, latency), pipeline (freshness, jobs,
-queue) and model (live accuracy, raw fallback, forecast coverage). First alert rules:
+queue) and model (live accuracy, raw fallback, forecast coverage). Alert rules:
 
 | Alert | Fires when |
 |---|---|
-| `DataStale` | a source's newest row is more than 2 hours older than its schedule allows |
-| `JobFailing` | a scheduled task's last run failed, or it hasn't succeeded for two of its periods |
+| `DataStale` | a source's newest row is more than about 2 hours older than its schedule allows |
+| `JobFailing` | a scheduled task hasn't succeeded for two of its periods |
+| `TargetDown` | Prometheus can't scrape the API or the exporter |
+| `ExporterFailing` | the exporter can't read one of its sources |
 | `ApiErrors` | more than 1% of API requests fail with a 5xx over 10 minutes |
 | `CorrectionWorseThanRaw` | the 14-day live MAE of the correction is above raw (ADR 0011) |
 | `MonitorsOnRaw` | 3 or more monitors have been on raw for 7 days (ADR 0011) |
+
+*Amended 2026-11-17 (#141).* The first version also fired `JobFailing` when a task's last run
+failed. In the first week a single live run failed on a network error and the next run caught
+up, so that rule would have woken someone for nothing. One failed run now shows in red on the
+Pipeline dashboard; the alert waits for two missed periods. `TargetDown` and `ExporterFailing`
+were added because every other alert reads the exporter's numbers: without them, a stopped
+exporter would silence everything. The exact thresholds and tests are in
+`infra/prometheus/rules/` and `infra/prometheus/tests/`.
 
 Until we deploy, Alertmanager has no outside receiver: firing alerts show in its web page and in
 Grafana. Phase 10 adds a real channel.
@@ -76,8 +86,8 @@ model's training data. The HTML report is logged to MLflow next to the model, an
 drifted inputs becomes a gauge on the model dashboard. Drift is a warning for a person to read;
 it does not start a retrain (ADR 0011).
 
-**What to do when an alert fires** goes in `docs/RUNBOOK.md`, one section per alert, written as
-each rule lands.
+**What to do when an alert fires** is in the [runbook](../RUNBOOK.md), one section per alert.
+Each rule's `runbook_url` links to its section.
 
 ## Consequences
 

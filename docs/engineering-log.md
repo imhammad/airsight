@@ -6,6 +6,18 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-17: Alert rule tests failed although the rules were right
+
+- **Symptom:** `promtool test rules` said DataStale and CorrectionWorseThanRaw never fired, at
+  times when the input series were clearly over the threshold.
+- **Cause:** the test inputs had one sample every 10 minutes or every hour. Prometheus only looks
+  back 5 minutes for the latest sample, so between samples the series didn't exist and the
+  rule's `for` timer restarted each time.
+- **Fix:** gave the series that rules read directly one sample a minute (`interval: 1m`, values
+  like `0x420`), as Prometheus would have from a real scrape.
+- **Lesson:** test inputs must be as dense as real data. A gap longer than 5 minutes is a missing
+  series, not a flat line.
+
 ### 2026-11-17: Two columns of the jobs table stayed empty in Grafana
 
 - **Symptom:** in the Pipeline dashboard's "Latest run of each job" table, the "Took" and "Rows

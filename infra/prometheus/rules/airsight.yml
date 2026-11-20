@@ -1,0 +1,110 @@
+# Alert rules (ADR 0013). What to do when each one fires: docs/RUNBOOK.md.
+# Thresholds follow the job schedules in worker/celery_app.py: change a schedule, change its rule.
+groups:
+  - name: pipeline
+    rules:
+      - alert: DataStale
+        # Hourly sources arrive every 3 hours and are normally at most about 4.5 hours old, so 6
+        # hours means a run was missed or came back empty. Day-ahead weather loads once a day.
+        expr: |
+          (time() - airsight_data_newest_timestamp_seconds{source!="day_ahead_weather"}) > 6 * 3600
+          or
+          (time() - airsight_data_newest_timestamp_seconds{source="day_ahead_weather"}) > 27 * 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No new {{ $labels.source }} data for {{ $value | humanizeDuration }}"
+          description: "The newest stored {{ $labels.source }} row is {{ $value | humanizeDuration }} old."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#datastale
+
+      - alert: JobFailing
+        # Two missed periods, not one failed run: a single failure (a network blip) is caught up by
+        # the next run, and the dashboard already shows it. The 30 minutes absorb run time.
+        expr: |
+          (time() - airsight_job_last_success_timestamp_seconds{task=~"live|correct_readings|issue_forecast"}) > 6.5 * 3600
+          or
+          (time() - airsight_job_last_success_timestamp_seconds{task=~"quality|load_day_ahead_weather"}) > 48.5 * 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.task }} hasn't succeeded for {{ $value | humanizeDuration }}"
+          description: "The scheduled job {{ $labels.task }} has missed two of its periods."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#jobfailing
+
+      - alert: TargetDown
+        # The API or the exporter stopped answering Prometheus. While the exporter is down, the
+        # pipeline and model alerts can't see anything, so this one covers them.
+        expr: up{job=~"api|exporter"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The {{ $labels.job }} is not answering Prometheus"
+          description: "Prometheus could not scrape {{ $labels.instance }} for 3 minutes."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#targetdown
+
+      - alert: ExporterFailing
+        # The exporter answers, but some of its queries fail (database, Redis or MLflow)
+        expr: airsight_exporter_up == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The exporter can't read all of its sources"
+          description: "airsight_exporter_up has been 0 for 15 minutes."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#exporterfailing
+
+  - name: api
+    rules:
+      - alert: ApiErrors
+        # At least 3 errors as well, so one failed request out of a handful doesn't fire.
+        # /metrics is left out: Prometheus' own scrapes would hide real traffic's error share.
+        expr: |
+          (
+            sum(rate(airsight_api_requests_total{status=~"5..", route!="/metrics"}[10m]))
+            / sum(rate(airsight_api_requests_total{route!="/metrics"}[10m]))
+          ) > 0.01
+          and
+          sum(increase(airsight_api_requests_total{status=~"5..", route!="/metrics"}[10m])) >= 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of API requests are failing"
+          description: "More than 1% of API requests got a 5xx over the last 10 minutes."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#apierrors
+
+  - name: model
+    rules:
+      - alert: CorrectionWorseThanRaw
+        # ADR 0011: the champion must beat the raw sensors on hours it never trained on. 200
+        # scored hours, as in ADR 0010, so a thin window can't fire it.
+        expr: |
+          airsight_model_live_mae{model="corrected"}
+          > ignoring(model) airsight_model_live_mae{model="raw"}
+          and ignoring(model) airsight_model_scored_hours >= 200
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "The correction is worse than the raw sensors"
+          description: "14-day live MAE of the correction is {{ $value | printf \"%.2f\" }} µg/m³, above raw."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#correctionworsethanraw
+
+      - alert: MonitorsOnRaw
+        # ADR 0011: 3 or more monitors on raw for a whole week calls for a retrain. Never below 3
+        # in the last 7 days, and already at 3 or more 6 to 7 days ago, so a week of data is
+        # needed. Unlike a 7-day "for", this survives the laptop sleeping and Prometheus restarts.
+        expr: |
+          min_over_time(airsight_model_monitors_on_raw[7d]) >= 3
+          and
+          last_over_time(airsight_model_monitors_on_raw[1d] offset 6d) >= 3
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} monitors have been on raw readings for 7 days"
+          description: "The correction has lost to raw at 3 or more monitors all week (ADR 0011)."
+          runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#monitorsonraw

@@ -84,21 +84,24 @@
     },
     {
       "type": "stat",
-      "title": "Tasks waiting",
-      "description": "Tasks in the Celery queue. The worker runs one at a time, so a few for a minute is normal; a growing number means the worker is stuck or down.",
+      "title": "Firing alerts",
+      "description": "Alerts firing now. Each one has a section in docs/RUNBOOK.md; the full list is in Alertmanager (localhost:9093).",
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"expr": "airsight_queue_length", "refId": "A", "instant": true, "range": false}],
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
           "color": {"mode": "thresholds"},
           "thresholds": {
             "mode": "absolute",
-            "steps": [
-              {"color": "#4e9f5e", "value": null},
-              {"color": "#d9a92e", "value": 5},
-              {"color": "#c43f3a", "value": 20}
-            ]
+            "steps": [{"color": "#4e9f5e", "value": null}, {"color": "#c43f3a", "value": 1}]
           }
         },
         "overrides": []
@@ -108,6 +111,7 @@
         "graphMode": "none",
         "text": {"valueSize": 34}
       },
+      "links": [{"title": "Open Alertmanager", "url": "http://localhost:9093", "targetBlank": true}],
       "id": 3,
       "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
     },
@@ -396,6 +400,66 @@
       "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
       "id": 10,
       "gridPos": {"x": 16, "y": 15, "w": 8, "h": 9}
+    },
+    {"id": 11, "type": "row", "title": "Alerts", "gridPos": {"x": 0, "y": 24, "w": 24, "h": 1}},
+    {
+      "type": "table",
+      "title": "Firing alerts",
+      "description": "What fired, for what, and how long ago it started. docs/RUNBOOK.md says what to do for each.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "max by (alertname, severity, source, task, job) (time() - ALERTS_FOR_STATE) and on (alertname, severity, source, task, job) ALERTS{alertstate=\"firing\"}",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true},
+            "indexByName": {"alertname": 0, "severity": 1, "source": 2, "task": 3, "job": 4, "Value": 5},
+            "renameByName": {
+              "alertname": "Alert",
+              "severity": "Severity",
+              "source": "Source",
+              "task": "Job",
+              "job": "Target",
+              "Value": "Active for"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"noValue": "Nothing is firing"},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Active for"},
+            "properties": [{"id": "unit", "value": "s"}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Severity"},
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {"critical": {"color": "#c43f3a"}, "warning": {"color": "#d9a92e"}}
+                  }
+                ]
+              },
+              {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+            ]
+          }
+        ]
+      },
+      "options": {"cellHeight": "sm"},
+      "id": 12,
+      "gridPos": {"x": 0, "y": 25, "w": 24, "h": 6}
     }
   ],
   "links": [{"type": "dashboards", "tags": ["airsight"], "title": "AirSight", "keepTime": true}]

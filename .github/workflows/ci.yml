@@ -51,6 +51,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Test the alert rules
+        run: >
+          docker run --rm -v "$PWD/infra/prometheus:/p:ro" --entrypoint promtool
+          prom/prometheus:v3.16.0 test rules /p/tests/airsight_test.yml
       - name: Start the stack and wait until every service is healthy
         run: docker compose up -d --build --wait
       - name: Call the health endpoint

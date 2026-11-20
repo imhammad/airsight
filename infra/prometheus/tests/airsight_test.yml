@@ -1,0 +1,200 @@
+# Unit tests for the alert rules: `promtool test rules` runs them in CI.
+# Time starts at 0, so time() at "6h" is 21600 and a timestamp of 0 is 6 hours old.
+rule_files:
+  - ../rules/airsight.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A source stops: hourly sources fire after 6 hours (+10m), day-ahead weather after 27 hours.
+  # Samples every minute, as in real life: a gap over 5 minutes makes a series disappear.
+  - interval: 1m
+    input_series:
+      - series: 'airsight_data_newest_timestamp_seconds{job="exporter", source="purpleair"}'
+        values: '0x1700'
+      - series: 'airsight_data_newest_timestamp_seconds{job="exporter", source="day_ahead_weather"}'
+        values: '0x1700'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: DataStale
+        exp_alerts: []
+      - eval_time: 6h20m
+        alertname: DataStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter, source: purpleair}
+            exp_annotations:
+              summary: "No new purpleair data for 6h 20m 0s"
+              description: "The newest stored purpleair row is 6h 20m 0s old."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#datastale
+      - eval_time: 27h20m
+        alertname: DataStale
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter, source: purpleair}
+            exp_annotations:
+              summary: "No new purpleair data for 1d 3h 20m 0s"
+              description: "The newest stored purpleair row is 1d 3h 20m 0s old."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#datastale
+          - exp_labels: {severity: warning, job: exporter, source: day_ahead_weather}
+            exp_annotations:
+              summary: "No new day_ahead_weather data for 1d 3h 20m 0s"
+              description: "The newest stored day_ahead_weather row is 1d 3h 20m 0s old."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#datastale
+
+  # A 3-hourly job misses two periods; a daily job and a manual backfill don't fire yet
+  - interval: 1m
+    input_series:
+      - series: 'airsight_job_last_success_timestamp_seconds{job="exporter", task="live"}'
+        values: '0x420'
+      - series: 'airsight_job_last_success_timestamp_seconds{job="exporter", task="quality"}'
+        values: '0x420'
+      - series: 'airsight_job_last_success_timestamp_seconds{job="exporter", task="backfill 7d"}'
+        values: '0x420'
+    alert_rule_test:
+      - eval_time: 6h30m
+        alertname: JobFailing
+        exp_alerts: []
+      - eval_time: 6h50m
+        alertname: JobFailing
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter, task: live}
+            exp_annotations:
+              summary: "live hasn't succeeded for 6h 50m 0s"
+              description: "The scheduled job live has missed two of its periods."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#jobfailing
+
+  # The exporter stops answering; Prometheus' own target being down doesn't matter here
+  - interval: 1m
+    input_series:
+      - series: 'up{job="exporter", instance="exporter:9108"}'
+        values: '0x10'
+      - series: 'up{job="api", instance="api:8000"}'
+        values: '1x10'
+      - series: 'up{job="alertmanager", instance="alertmanager:9093"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TargetDown
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: TargetDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: exporter, instance: "exporter:9108"}
+            exp_annotations:
+              summary: "The exporter is not answering Prometheus"
+              description: "Prometheus could not scrape exporter:9108 for 3 minutes."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#targetdown
+
+  - interval: 1m
+    input_series:
+      - series: 'airsight_exporter_up{job="exporter"}'
+        values: '1x5 0x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ExporterFailing
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: ExporterFailing
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter}
+            exp_annotations:
+              summary: "The exporter can't read all of its sources"
+              description: "airsight_exporter_up has been 0 for 15 minutes."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#exporterfailing
+
+  # About 5% of real requests fail; Prometheus' scrapes of /metrics don't dilute that
+  - interval: 1m
+    input_series:
+      - series: 'airsight_api_requests_total{job="api", method="GET", route="/v1/readings/latest", status="200"}'
+        values: '0+100x40'
+      - series: 'airsight_api_requests_total{job="api", method="GET", route="/v1/readings/latest", status="500"}'
+        values: '0+5x40'
+      - series: 'airsight_api_requests_total{job="api", method="GET", route="/metrics", status="200"}'
+        values: '0+10000x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ApiErrors
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ApiErrors
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: "4.762% of API requests are failing"
+              description: "More than 1% of API requests got a 5xx over the last 10 minutes."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#apierrors
+
+  # One failed request in quiet traffic is above 1% but not 3 errors: no alert
+  - interval: 1m
+    input_series:
+      - series: 'airsight_api_requests_total{job="api", method="GET", route="/v1/health", status="200"}'
+        values: '0+1x40'
+      - series: 'airsight_api_requests_total{job="api", method="GET", route="/v1/health", status="500"}'
+        values: '0x10 1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApiErrors
+        exp_alerts: []
+
+  # The correction loses to raw over 300 scored hours for 6 hours
+  - interval: 1m
+    input_series:
+      - series: 'airsight_model_live_mae{job="exporter", model="corrected"}'
+        values: '5.1x480'
+      - series: 'airsight_model_live_mae{job="exporter", model="raw"}'
+        values: '4.8x480'
+      - series: 'airsight_model_scored_hours{job="exporter"}'
+        values: '300x480'
+    alert_rule_test:
+      - eval_time: 5h
+        alertname: CorrectionWorseThanRaw
+        exp_alerts: []
+      - eval_time: 7h
+        alertname: CorrectionWorseThanRaw
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter}
+            exp_annotations:
+              summary: "The correction is worse than the raw sensors"
+              description: "14-day live MAE of the correction is 5.10 µg/m³, above raw."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#correctionworsethanraw
+
+  # The same, but over too few scored hours to trust: no alert
+  - interval: 1m
+    input_series:
+      - series: 'airsight_model_live_mae{job="exporter", model="corrected"}'
+        values: '5.1x480'
+      - series: 'airsight_model_live_mae{job="exporter", model="raw"}'
+        values: '4.8x480'
+      - series: 'airsight_model_scored_hours{job="exporter"}'
+        values: '120x480'
+    alert_rule_test:
+      - eval_time: 7h
+        alertname: CorrectionWorseThanRaw
+        exp_alerts: []
+
+  # 3 monitors on raw: nothing until a full week of data, then it fires
+  - interval: 1h
+    input_series:
+      - series: 'airsight_model_monitors_on_raw{job="exporter"}'
+        values: '3x200'
+    alert_rule_test:
+      - eval_time: 100h
+        alertname: MonitorsOnRaw
+        exp_alerts: []
+      - eval_time: 172h
+        alertname: MonitorsOnRaw
+        exp_alerts:
+          - exp_labels: {severity: warning, job: exporter}
+            exp_annotations:
+              summary: "3 monitors have been on raw readings for 7 days"
+              description: "The correction has lost to raw at 3 or more monitors all week (ADR 0011)."
+              runbook_url: https://github.com/imhammad/airsight/blob/main/docs/RUNBOOK.md#monitorsonraw
+
+  # One day back at 2 during the week: no alert
+  - interval: 1h
+    input_series:
+      - series: 'airsight_model_monitors_on_raw{job="exporter"}'
+        values: '3x100 2x24 3x76'
+    alert_rule_test:
+      - eval_time: 190h
+        alertname: MonitorsOnRaw
+        exp_alerts: []
