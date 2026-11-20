@@ -8,6 +8,7 @@ The table keeps its first name; it now holds every job, not only ingestion.
 import logging
 from typing import Any
 
+from celery.exceptions import Retry
 from sqlalchemy import Engine
 
 from airsight.ingestion import store
@@ -39,6 +40,12 @@ def rows_from(result: Any) -> int:
     return 0
 
 
+def error_name(result: Any) -> str:
+    """A failed run's error: the exception's type, or for a retried attempt, why it retries."""
+    reason = result.exc if isinstance(result, Retry) and result.exc is not None else result
+    return type(reason).__name__
+
+
 def record_start(engine: Engine, task_id: str, task_name: str) -> None:
     if task_name in SELF_RECORDED:
         return
@@ -62,7 +69,7 @@ def record_finish(engine: Engine, task_id: str, state: str | None, result: Any) 
                 run_id,
                 "succeeded" if succeeded else "failed",
                 rows_from(result) if succeeded else 0,
-                None if succeeded else type(result).__name__,
+                None if succeeded else error_name(result),
             )
     except Exception:
         logger.warning("Could not record the end of run %d", run_id, exc_info=True)

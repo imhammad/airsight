@@ -6,6 +6,21 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-20: Forecasts stopped after the laptop slept, and every run said "succeeded"
+
+- **Symptom:** the Pipeline dashboard showed forecasts 11.8 hours old while every other source
+  was under 2 hours, and Failed jobs was 0. `ingestion_runs` had `issue_forecast` runs marked
+  `succeeded` with 0 rows, and the log said `Forecast 0 hours issued at 2026-11-20 14:00`.
+- **Cause:** the Mac slept from 06:45 to 16:30 UTC. On waking, Celery beat started every overdue
+  job at once, and the forecast ran before live ingestion had loaded the hour it forecasts from.
+  With no readings at the issue hour, it stored nothing, and an empty run counted as a success.
+- **Fix:** when the forecast stores no hours, the task retries 15 minutes later, up to 4 times,
+  then fails with `NoReadingsYetError`. Retried attempts are recorded with that reason. Missed
+  issue hours are not filled in afterwards: a forecast "issued" at 08:00 with weather fetched at
+  16:30 would score better than a real one.
+- **Lesson:** a job that can legitimately find nothing needs to say so. "Succeeded, 0 rows" is
+  how the 12 November AirNow outage hid too. This time the DataStale alert caught it.
+
 ### 2026-11-17: Alert rule tests failed although the rules were right
 
 - **Symptom:** `promtool test rules` said DataStale and CorrectionWorseThanRaw never fired, at
