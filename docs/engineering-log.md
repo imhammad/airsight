@@ -6,6 +6,19 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-21: Evidently can't be imported with pandas 3
+
+- **Symptom:** after `uv add evidently` (0.7.23, the newest release), `import evidently` failed
+  with `ImportError: cannot import name 'infer_dtype_from_object' from
+  'pandas.core.dtypes.common'`.
+- **Cause:** Evidently still imports a pandas internal that pandas 3 removed. Its package
+  metadata allows any pandas from 1.3.5, so uv installed it without complaint.
+- **Fix:** removed Evidently and computed its default drift test for numeric columns ourselves
+  with scipy (`observability/drift.py`), about 40 lines with tests. This also kept about 50
+  packages (Litestar, NLTK, OpenTelemetry and more) out of the worker image. ADR 0013 amended.
+- **Lesson:** a dependency's version range says what it allows, not what it was tested with.
+  Import it and run one call before building on it.
+
 ### 2026-11-20: Forecasts stopped after the laptop slept, and every run said "succeeded"
 
 - **Symptom:** the Pipeline dashboard showed forecasts 11.8 hours old while every other source

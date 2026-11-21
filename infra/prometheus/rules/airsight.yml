@@ -24,7 +24,7 @@ groups:
         expr: |
           (time() - airsight_job_last_success_timestamp_seconds{task=~"live|correct_readings|issue_forecast"}) > 6.5 * 3600
           or
-          (time() - airsight_job_last_success_timestamp_seconds{task=~"quality|load_day_ahead_weather"}) > 48.5 * 3600
+          (time() - airsight_job_last_success_timestamp_seconds{task=~"quality|load_day_ahead_weather|check_drift"}) > 48.5 * 3600
         for: 10m
         labels:
           severity: warning

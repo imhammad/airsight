@@ -6,6 +6,7 @@ from prometheus_client.parser import text_string_to_metric_families
 from sqlalchemy import Engine, create_engine, text
 
 from airsight.api.schemas import ModelInfo
+from airsight.core.tables import input_drift
 from airsight.observability import exporter
 from airsight.observability.exporter import MODEL_TTL_SECONDS, PipelineCollector
 from airsight.worker import runs
@@ -113,6 +114,45 @@ def test_queue_length_and_model_metrics(engine: Engine) -> None:
     assert value(samples, "airsight_model_monitors_on_raw") is not None
     assert value(samples, "airsight_model_scored_hours") == 0.0  # nothing stored for v99
     assert value(samples, "airsight_forecast_scored_hours") is not None
+
+
+def test_the_newest_drift_check_becomes_gauges(engine: Engine) -> None:
+    newest = datetime(2030, 1, 1, tzinfo=UTC)  # later than any check another test stores
+    with engine.begin() as connection:
+        connection.execute(
+            input_drift.insert(),
+            [
+                {
+                    "checked_at": newest,
+                    "feature": "raw",
+                    "model_version": "m/1",
+                    "score": 0.31,
+                    "drifted": True,
+                },
+                {
+                    "checked_at": newest,
+                    "feature": "temperature",
+                    "model_version": "m/1",
+                    "score": 0.04,
+                    "drifted": False,
+                },
+                {
+                    "checked_at": newest,
+                    "feature": "precipitation",
+                    "model_version": "m/1",
+                    "score": None,
+                    "drifted": False,
+                },
+            ],
+        )
+
+    samples = scrape(collector(engine))
+
+    score = "airsight_model_input_drift_score"
+    assert value(samples, score, feature="raw") == pytest.approx(0.31)
+    assert value(samples, score, feature="temperature") == pytest.approx(0.04)
+    assert value(samples, score, feature="precipitation") is None  # not scored, not zero
+    assert value(samples, "airsight_model_inputs_drifted_share") == pytest.approx(1 / 3)
 
 
 def test_model_metrics_are_recomputed_at_most_every_five_minutes(engine: Engine) -> None:

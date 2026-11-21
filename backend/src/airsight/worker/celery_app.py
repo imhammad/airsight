@@ -59,6 +59,11 @@ app.conf.update(
             # Once a day, between live runs; a missed day is reloaded the next day
             "schedule": crontab(minute="45", hour="4"),
         },
+        "input-drift": {
+            "task": "airsight.check_drift",
+            # Once a day, in a quiet slot between the 3-hourly jobs
+            "schedule": crontab(minute="15", hour="2"),
+        },
     },
 )
 

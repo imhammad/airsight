@@ -45,7 +45,7 @@ flowchart LR
 | Component | Role | Code |
 |---|---|---|
 | Celery beat | The only scheduler. Exactly one instance, in its own container. | `airsight.worker` |
-| Celery workers | Ingestion, correction and forecast tasks. | `airsight.worker`, `airsight.ingestion`, `airsight.ml` |
+| Celery workers | Ingestion, correction, forecast and daily input drift tasks. | `airsight.worker`, `airsight.ingestion`, `airsight.ml` |
 | PostgreSQL | All data: time series, locations, predictions, run history. | Alembic migrations |
 | Redis | Celery broker (database 0) and API cache (database 1). | |
 | MLflow | Experiment tracking and the model registry. | |
@@ -88,6 +88,9 @@ sequenceDiagram
     W->>Src: request the upcoming weather forecast
     W->>DB: read recent hourly features
     W->>DB: upsert forecasts for the next 24 hours
+    Beat->>W: check_drift (daily at 02:15)
+    W->>DB: compare the last 7 days of inputs with the training period
+    W->>DB: insert input_drift scores, log the report to MLflow
     API->>DB: read latest results with as_of
 ```
 
