@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Champion since 2026-11-06 (AirSight v0.3.0), served by the API since v0.4.0 |
+| **Status** | Champion since 2026-11-06 (AirSight v0.3.0), served by the API since v0.4.0; kept after the 2026-11-21 retrain ([Retrain history](#retrain-history)) |
 | **Registry** | MLflow model `airsight-correction`, version 1, alias `@champion` |
 | **Training run** | `034df2accb7b4f51a02b01c8d3be47ef` (experiment `correction`) |
 | **Dataset** | `pairs-f5a557c189d5`: 54,869 sensor-hours, 31 sensors, 10 official monitors, 2026-08-07 to 2026-11-05 |
@@ -106,6 +106,59 @@ sign. On the final test the model read low on moderate hours; live, it reads 1 t
 at 9 of 10 stations, and +3.5 at San Rafael. The likely cause is that November air is cleaner
 than the August to October training data. This is the drift the monitoring and retraining in
 Phase 8 are for.
+
+## Retrain history
+
+### 2026-11-21: retrained, v1 kept (#108)
+
+**Why.** On 2026-11-09 v1 was less accurate than raw readings at 4 of 10 monitors, which is
+a retrain trigger in ADR 0011. By the time the retrain could run (it needed 14 fresh days for a
+final test), the data-quality fixes in #99 and #100 had brought v1 back to 2.67 live against
+4.84 for raw. The retrain went ahead as planned, with the usual rule that it replaces v1 only if
+it wins.
+
+**Data.** Dataset `pairs-3e54345cdafc`: 60,704 sensor-hours, 31 sensors, 10 monitors, ending
+2026-11-21. Training run `9a986e839dfc42b599f0bdbe06929514`.
+
+**Validation** (2026-10-24 to 2026-11-07) picks one of the three candidates:
+
+| Candidate | Headline MAE |
+|---|---|
+| Raw PurpleAir | 2.90 |
+| EPA correction | 3.47 |
+| **all-data** (chosen) | **2.56** |
+| last-60-days | 2.58 |
+| recent-weighted (30-day half-life) | 2.60 |
+
+**Final test** (2026-11-07 to 2026-11-21, 5,562 hours, the same hours for every model, seen by
+neither):
+
+| | Headline MAE | All hours MAE | Moderate hours MAE (1,094 h) | Bias |
+|---|---|---|---|---|
+| Raw PurpleAir | 4.48 | 4.80 | 10.48 | +1.48 |
+| EPA correction | 4.17 | 3.58 | 5.46 | −2.02 |
+| Candidate (all-data, trained on everything before the test) | 2.66 | 2.71 | 5.35 | −0.73 |
+| **v1 (champion)** | **2.65** | **2.69** | **4.93** | −0.45 |
+
+The candidate passed the ADR 0007 ship rules, but ADR 0011 also requires a lower final-test MAE
+than the champion, and 2.66 is not below 2.65. **v1 stays champion.** The two are effectively
+tied: the candidate is better at 4 stations (Concord, Oakland, Redwood City, San Francisco), v1
+at the other 6, and v1 is clearly better on moderate hours.
+
+**What we learned.**
+
+- All three candidates scored within 0.04 of each other on validation, and the one that weights
+  recent data most scored worst. There is no sign that the sensors' behaviour changed with the
+  season. v1's weak start in November came from data problems that #99 and #100 fixed, not from
+  drift, which corrects the guess in [Live performance](#live-performance).
+- A month more of training data did not help. More variety (wood smoke, wildfire smoke) will
+  matter more than more of the same autumn air.
+- November is harder for raw sensors than the original test: raw reads 7 µg/m³ high on moderate
+  hours. v1 removes most of that error, but still reads low on those hours (bias −4.68).
+
+**Next retrain** needs a dataset ending 2026-12-05 or later, so its final test is 14 days
+neither model has seen, and, as ADR 0011 says, one of its triggers. The alerts from #141 watch
+both.
 
 ## Limitations
 
