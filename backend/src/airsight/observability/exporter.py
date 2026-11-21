@@ -71,6 +71,13 @@ JOBS_SQL = text("""
     GROUP BY r.task, l.status, l.duration, l.rows_upserted
 """)
 
+# The newest daily drift check: one row per model input (observability/drift.py)
+DRIFT_SQL = text("""
+    SELECT feature, score, drifted
+    FROM input_drift
+    WHERE checked_at = (SELECT max(checked_at) FROM input_drift)
+""")
+
 MONITORS_ON_RAW_SQL = text(
     "SELECT count(DISTINCT station_id) FROM serving_sources WHERE source = 'raw'"
 )
@@ -209,6 +216,23 @@ class PipelineCollector(Collector):
             )
             on_raw.add_metric([], float(connection.execute(MONITORS_ON_RAW_SQL).scalar_one()))
             yield on_raw
+
+            drift_rows = connection.execute(DRIFT_SQL).all()
+            if drift_rows:
+                drift_scores = gauge(
+                    "airsight_model_input_drift_score",
+                    "Drift of each input in the newest daily check; above 0.1 it has drifted",
+                    ["feature"],
+                )
+                for row in drift_rows:
+                    if row.score is not None:
+                        drift_scores.add_metric([row.feature], float(row.score))
+                share = gauge(
+                    "airsight_model_inputs_drifted_share",
+                    "Share of the model's inputs that drifted in the newest daily check",
+                )
+                share.add_metric([], sum(row.drifted for row in drift_rows) / len(drift_rows))
+                yield from (drift_scores, share)
 
             if champion is not None:
                 # The same window as the accuracy page: only hours the champion never saw

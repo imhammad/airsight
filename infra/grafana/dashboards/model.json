@@ -1,7 +1,7 @@
 {
   "uid": "airsight-model",
   "title": "Model",
-  "description": "Live accuracy of the correction model and the forecast.",
+  "description": "Live accuracy of the correction model and the forecast, and drift in the model's inputs.",
   "tags": ["airsight"],
   "editable": false,
   "graphTooltip": 1,
@@ -305,6 +305,139 @@
       "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
       "id": 11,
       "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8}
+    },
+    {"id": 12, "type": "row", "title": "Inputs", "gridPos": {"x": 0, "y": 22, "w": 24, "h": 1}},
+    {
+      "type": "stat",
+      "title": "Inputs drifting",
+      "description": "Share of the correction model's inputs whose last 7 days differ from its training data (daily check, ADR 0013). A reason to look, not to retrain.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_inputs_drifted_share",
+          "refId": "A",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#4e9f5e", "value": null}, {"color": "#d9a92e", "value": 0.01}]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "graphMode": "none",
+        "text": {"valueSize": 34}
+      },
+      "id": 13,
+      "gridPos": {"x": 0, "y": 23, "w": 5, "h": 8}
+    },
+    {
+      "type": "bargauge",
+      "title": "Drift score by input",
+      "description": "How far each input's last 7 days moved from the training data, in standard deviations (Wasserstein distance). Above 0.1 it counts as drifted.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_input_drift_score",
+          "refId": "A",
+          "legendFormat": "{{feature}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "min": 0,
+          "max": 0.5,
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "#4e9f5e", "value": null}, {"color": "#d9a92e", "value": 0.1}]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "reduceOptions": {"calcs": ["lastNotNull"]}
+      },
+      "id": 14,
+      "gridPos": {"x": 5, "y": 23, "w": 8, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Drift score over time",
+      "description": "One point a day per input. The dashed line at 0.1 is where an input counts as drifted.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "airsight_model_input_drift_score",
+          "refId": "A",
+          "legendFormat": "{{feature}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never",
+            "thresholdsStyle": {"mode": "dashed"},
+            "axisSoftMax": 0.3
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "transparent", "value": null}, {"color": "#d9a92e", "value": 0.1}]
+          },
+          "decimals": 2,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "raw"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#1e5a85"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "channel_difference"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#4f7f9e"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "temperature"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#a0522d"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "relative_humidity"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#7d838a"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "wind_speed"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#6b5b8c"}}]
+          },
+          {
+            "matcher": {"id": "byName", "options": "precipitation"},
+            "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#b4b8bd"}}]
+          }
+        ]
+      },
+      "options": {"tooltip": {"mode": "multi", "sort": "desc"}},
+      "id": 15,
+      "gridPos": {"x": 13, "y": 23, "w": 11, "h": 8}
     }
   ],
   "links": [{"type": "dashboards", "tags": ["airsight"], "title": "AirSight", "keepTime": true}]

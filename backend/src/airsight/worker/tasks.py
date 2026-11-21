@@ -7,6 +7,7 @@ from celery import Task
 from airsight.core.db import get_engine
 from airsight.ingestion import day_ahead, live, quality
 from airsight.ml import batch, forecast_batch
+from airsight.observability import drift
 from airsight.worker.celery_app import app
 
 
@@ -55,3 +56,9 @@ def issue_forecast(self: "Task[[], int]") -> int:
             countdown=FORECAST_RETRY_SECONDS,
         )
     return count
+
+
+@app.task(name="airsight.check_drift")
+def check_drift() -> int:
+    """Compare the last 7 days of model inputs with the training data (daily, ADR 0013)."""
+    return drift.check_champion(get_engine())

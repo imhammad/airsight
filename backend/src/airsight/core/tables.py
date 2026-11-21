@@ -166,3 +166,16 @@ forecasts = Table(
     Column("model_version", Text, nullable=False),
     Column("computed_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
+
+# Daily drift score of each model input against the champion's training data (ADR 0013)
+input_drift = Table(
+    "input_drift",
+    metadata,
+    Column("checked_at", DateTime(timezone=True), primary_key=True),
+    Column("feature", Text, primary_key=True),
+    Column("model_version", Text, nullable=False),
+    Column("score", REAL),
+    Column("drifted", Boolean, nullable=False),
+    Column("reference_median", REAL),
+    Column("current_median", REAL),
+)

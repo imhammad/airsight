@@ -67,8 +67,8 @@ stopped and every run still reported success.
 ## JobFailing
 
 **What it means:** a scheduled job hasn't finished successfully for two of its periods: 6.5 hours
-for `live`, `correct_readings` and `issue_forecast`, 48.5 hours for `quality` and
-`load_day_ahead_weather`. A single failed run doesn't fire, because the next run catches up; the
+for `live`, `correct_readings` and `issue_forecast`, 48.5 hours for `quality`,
+`load_day_ahead_weather` and `check_drift`. A single failed run doesn't fire, because the next run catches up; the
 Pipeline dashboard shows it in red.
 
 **Check:**

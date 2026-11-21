@@ -81,10 +81,17 @@ exporter would silence everything. The exact thresholds and tests are in
 Until we deploy, Alertmanager has no outside receiver: firing alerts show in its web page and in
 Grafana. Phase 10 adds a real channel.
 
-**Drift.** Once a day, an Evidently report compares the last 7 days of live model inputs with the
-model's training data. The HTML report is logged to MLflow next to the model, and the share of
-drifted inputs becomes a gauge on the model dashboard. Drift is a warning for a person to read;
-it does not start a retrain (ADR 0011).
+**Drift.** Once a day, a job compares the last 7 days of live model inputs with the model's
+training data. The HTML report is logged to MLflow, and the share of drifted inputs becomes a
+gauge on the model dashboard. Drift is a warning for a person to read; it does not start a
+retrain (ADR 0011).
+
+*Amended 2026-11-21 (#142).* This first said Evidently would make the report. Evidently 0.7.23,
+the newest release, fails to import with pandas 3, which the project uses, and would add about
+50 packages to the worker image. The job computes Evidently's default test for numeric inputs
+itself with scipy: the Wasserstein distance between training and live values, divided by the
+training values' standard deviation, with drift above 0.1. Scores are stored in `input_drift`,
+one row per input per day, and each report is a run in the MLflow experiment `input-drift`.
 
 **What to do when an alert fires** is in the [runbook](../RUNBOOK.md), one section per alert.
 Each rule's `runbook_url` links to its section.
