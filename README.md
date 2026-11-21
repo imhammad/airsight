@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.5.0` (web app). Follow progress on the
+> **Status:** early development, `v0.6.0` (24-hour forecast). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -51,7 +51,23 @@ without that monitor's data ([ADR 0007](docs/adr/0007-model-evaluation.md)). Mea
 
 Better than the EPA correction at 7 of 10 monitors. No claim yet above 35.4 µg/m³: there were no
 smoke days in the data. Details and limitations are in the
-[model card](docs/model-cards/airsight-correction-v1.md).
+[model card](docs/model-cards/airsight-correction-v1.md). A retrain on 2026-11-21 tied this model
+on 14 new days, so it is still the one in use.
+
+## Forecast (v0.6.0)
+
+Every 3 hours, AirSight forecasts each paired sensor's next 24 hours, with a range the true value
+should fall inside 8 times in 10 ([ADR 0012](docs/adr/0012-forecast-design.md)). On 14 days it
+never saw, mean absolute error in µg/m³ averaged over 10 monitors:
+
+| | All horizons | 1 to 6 hours | 13 to 24 hours |
+|---|---|---|---|
+| Persistence (the monitor's latest reading) | 3.21 | 2.78 | 3.40 |
+| Same hour yesterday | 3.24 | 3.20 | 3.26 |
+| **AirSight** | **2.69** | **2.41** | **2.82** |
+
+The range held 79% of hours. The accuracy page scores the forecast live, and the
+[forecast model card](docs/model-cards/airsight-forecast-v1.md) has the details and limits.
 
 ## Web app
 
@@ -116,7 +132,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.3.0 | Calibration model that beats the EPA correction | ✅ |
 | v0.4.0 | Public API serving corrected readings | ✅ |
 | v0.5.0 | Web app: map, location detail, accuracy page | ✅ |
-| v0.6.0 | 24-hour forecast with uncertainty | ⏳ |
+| v0.6.0 | 24-hour forecast with uncertainty | ✅ |
 | v0.7.0 | Observability and live model monitoring | ⏳ |
 | v1.0.0 | Public launch | ⏳ |
 

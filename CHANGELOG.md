@@ -6,6 +6,57 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.6.0 - 2026-11-21
+
+Forecast: the next 24 hours of PM2.5 for every paired sensor, with an honest p10 to p90 range,
+issued every 3 hours, served by the API, shown on the sensor page and scored live on the accuracy
+page. Also the first retrain of the correction model, and early observability work from v0.7.0.
+
+### Added
+
+- Retraining rules: three training-data candidates, a validation period that picks one, and a
+  final test the new model must win against the champion (ADR 0011) (#114, #117).
+- Forecast design: LightGBM quantile models, day-ahead weather as it was forecast, a
+  rolling-origin backtest and ship rules against persistence and same hour yesterday (ADR 0012)
+  (#118).
+- Day-ahead weather forecasts stored daily from the Open-Meteo Previous Runs API (#119).
+- Forecast dataset and rolling-origin backtest (#120).
+- airsight-forecast v1: p10, p50 and p90 models with a range calibrated by conformalized quantile
+  regression, stored and promoted as one model. Final test MAE 2.69 µg/m³ against 3.21 for
+  persistence, best at 9 of 10 monitors, range holds 79% of hours; model card in
+  `docs/model-cards/airsight-forecast-v1.md` (#122, #123, #124, #125).
+- A job that issues the forecast every 3 hours and stores it (#126).
+- `GET /v1/sensors/{sensor_id}/forecast`, with `stale` and `monitor_offline` flags (#127, #134).
+- The next 24 hours on the sensor page, as a range with the middle estimate (#128).
+- `GET /v1/accuracy/forecast` and a forecast section on the accuracy page: live error against
+  both baselines, by hours ahead, and how often the range holds (#130, #135).
+
+### Changed
+
+- Sensors with a dead or disagreeing channel are excluded from training and serving (#115).
+- The correction no longer uses the sensor's humidity reading, so sensors that report none are
+  corrected too (#116).
+- The correction model was retrained on 2026-11-21 under ADR 0011. The new model tied v1 on the
+  final test (2.66 against 2.65 µg/m³), so v1 stays champion; the result is in the v1 model
+  card (#159).
+
+### Fixed
+
+- Live ingestion refills gaps in official readings after a missed run, up to 3 days back (#132).
+- Forecast hours were built wrongly when start and end used different UTC objects (#121).
+
+### Observability (early v0.7.0 work, included in this release)
+
+- How we watch the system and the model (ADR 0013) (#143).
+- Structured JSON logs with request IDs in the API and the worker (#151).
+- Prometheus metrics: the API at `/metrics`, and a pipeline and model exporter on port 9108
+  (#152, #153, #154).
+- Prometheus, Alertmanager and Grafana in Docker Compose, with Pipeline, API and Model dashboards
+  kept as code (#155).
+- Seven alert rules with unit tests in CI, and `docs/RUNBOOK.md` with a section per alert (#156).
+- The forecast retries for up to an hour when its readings aren't loaded yet, instead of reporting
+  success with nothing stored (#158).
+
 ## 0.5.0 - 2026-11-11
 
 Web app: a phone-first map of corrected readings, a page per sensor, the live accuracy against
