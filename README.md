@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.6.0` (24-hour forecast). Follow progress on the
+> **Status:** early development, `v0.7.0` (observability). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -98,6 +98,18 @@ curl "http://localhost:8000/v1/accuracy?days=7"
 Endpoints, fields, errors, caching and rate limits are in the [API guide](docs/API.md), and
 interactive docs are at http://localhost:8000/docs.
 
+## Monitoring (v0.7.0)
+
+Prometheus, Alertmanager and Grafana run in the same Compose stack
+([ADR 0013](docs/adr/0013-observability.md)). Three dashboards show data freshness and jobs, API
+traffic and latency, and the live accuracy of both models. Seven alert rules are unit-tested in
+CI, and each has a section in the [runbook](docs/RUNBOOK.md).
+
+Once a day, the model's inputs from the last 7 days are compared with its training data. The
+first check, on 2026-11-21, found all six inputs had drifted: November is colder, wetter and
+cleaner than the training months. Yet on 14 November days the model still tied one retrained
+with newer data, which is why drift is a reason to look and not, by itself, to retrain.
+
 ## Quickstart
 
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
@@ -133,7 +145,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.4.0 | Public API serving corrected readings | ✅ |
 | v0.5.0 | Web app: map, location detail, accuracy page | ✅ |
 | v0.6.0 | 24-hour forecast with uncertainty | ✅ |
-| v0.7.0 | Observability and live model monitoring | ⏳ |
+| v0.7.0 | Observability and live model monitoring | ✅ |
 | v1.0.0 | Public launch | ⏳ |
 
 ## Documentation
@@ -143,6 +155,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 - [Model card: correction](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
 - [Model card: forecast](docs/model-cards/airsight-forecast-v1.md): how the 24-hour forecast was tested, and its limits
 - [API guide](docs/API.md): endpoints, fields, errors, caching, rate limits and performance
+- [Runbook](docs/RUNBOOK.md): what to do when each alert fires
 - [Engineering log](docs/engineering-log.md): every problem hit and how it was solved
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)

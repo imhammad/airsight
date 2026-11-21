@@ -6,6 +6,25 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.7.0 - 2026-11-21
+
+Observability and live model monitoring. Most of it shipped early in 0.6.0 (see "Observability"
+there): JSON logs, Prometheus metrics, the monitoring stack, three dashboards and seven alerts.
+This release completes it with a daily check of the model's inputs.
+
+### Added
+
+- A daily input drift check: each of the correction model's 6 inputs over the last 7 days is
+  compared with its training data, the scores are stored in `input_drift`, a report is logged
+  to the MLflow experiment `input-drift`, and the Model dashboard shows them in a new Inputs row.
+  Drift is a reason to look, not to retrain (ADR 0011) (#161).
+
+### Changed
+
+- ADR 0013 amended: the drift check computes Evidently's default test itself with scipy, because
+  Evidently does not support pandas 3 (#161).
+- The JobFailing alert also covers the daily drift job (#161).
+
 ## 0.6.0 - 2026-11-21
 
 Forecast: the next 24 hours of PM2.5 for every paired sensor, with an honest p10 to p90 range,
