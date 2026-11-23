@@ -1,0 +1,129 @@
+# Production on the Mac (ADR 0014), next to docker-compose.yml. Always run it as:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build --wait
+#
+# It is its own Compose project, airsight-prod, with its own volumes, so development can never
+# touch production data. Only the web service is published, on 127.0.0.1:8080, where Tailscale
+# Funnel picks it up. The internal tools listen on 127.0.0.1 on ports that don't clash with
+# development. Secrets come from .env.prod, which is never committed (see .env.prod.example).
+name: airsight-prod
+
+x-prod-backend: &prod-backend
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: postgresql+psycopg://airsight:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}@db:5432/airsight
+    REDIS_URL: redis://redis:6379/0
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+    RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+
+services:
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  api:
+    <<: *prod-backend
+    # Behind Caddy, the visitor's address arrives in X-Forwarded-For. Uvicorn uses it, so the
+    # rate limit counts each visitor, not Caddy. Only Caddy can reach the API in production.
+    command: ["uvicorn", "airsight.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  worker:
+    <<: *prod-backend
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  beat:
+    <<: *prod-backend
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  exporter:
+    <<: *prod-backend
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  mlflow:
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:5002:5000"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis:
+    restart: unless-stopped
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  prometheus:
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:9091:9090"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  alertmanager:
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:9094:9093"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  grafana:
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.prod}
+    ports: !override
+      - "127.0.0.1:3001:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
