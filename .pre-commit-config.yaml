@@ -7,6 +7,12 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
+        # Compose's !reset and !override tags aren't plain YAML; that file gets a syntax-only check
+        exclude: ^docker-compose\.prod\.yml$
+      - id: check-yaml
+        name: check yaml (compose override, syntax only)
+        files: ^docker-compose\.prod\.yml$
+        args: [--unsafe]
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files

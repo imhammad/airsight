@@ -1,0 +1,48 @@
+# AirSight's public front door (ADR 0014). Tailscale Funnel ends HTTPS on the Mac and forwards
+# plain HTTP to this server, so Caddy never deals with certificates itself.
+{
+	auto_https off
+	admin off
+	servers {
+		# Funnel reaches us through Docker's private network and adds the visitor's address to
+		# X-Forwarded-For. Read it right to left, so an address a visitor made up is ignored.
+		trusted_proxies static private_ranges
+		trusted_proxies_strict
+		client_ip_headers X-Forwarded-For
+	}
+}
+
+:80 {
+	encode zstd gzip
+
+	log {
+		output stdout
+		format json
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# The public API and its interactive docs. /metrics is never proxied.
+	@api path /v1/* /docs /docs/* /redoc /openapi.json
+	handle @api {
+		reverse_proxy api:8000 {
+			# One address only, the visitor's: the API's rate limit counts per visitor
+			header_up X-Forwarded-For {client_ip}
+		}
+	}
+
+	# Everything else is the web app. File names under /assets change with every build,
+	# so browsers may keep them for a year; any other path falls back to the app's index.html.
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
