@@ -3,7 +3,9 @@
 # also passes /v1 to the API. The Caddyfile is mounted from infra/caddy/ by docker-compose.prod.yml.
 
 # ---------- Stage 1: build the static site ----------
-FROM node:24.20.0-alpine AS build
+# The output is plain files, so this stage runs on the build machine's own CPU even when the
+# image is for another one (CI builds for Intel and Apple Silicon)
+FROM --platform=$BUILDPLATFORM node:24.20.0-alpine AS build
 WORKDIR /web
 # Dependencies first, so this layer stays cached until the lock file changes
 COPY package.json package-lock.json ./

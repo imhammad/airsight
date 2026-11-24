@@ -1,6 +1,10 @@
 # Production on the Mac (ADR 0014), next to docker-compose.yml. Always run it as:
 #
-#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build --wait
+#   scripts/deploy.sh <vX.Y.Z | main> <commit sha>
+#
+# which GitHub Actions runs on a release (issue #166), or the prod command on the Mac for
+# everything else (prod ps, prod logs -f api). Production runs only images CI built and
+# pushed to GHCR, tagged with the commit sha; it never builds anything itself.
 #
 # It is its own Compose project, airsight-prod, with its own volumes, so development can never
 # touch production data. Only the web service is published, on 127.0.0.1:8080, where Tailscale
@@ -9,6 +13,8 @@
 name: airsight-prod
 
 x-prod-backend: &prod-backend
+  image: ghcr.io/imhammad/airsight-backend:${AIRSIGHT_IMAGE_TAG:?run through scripts/deploy.sh or the prod command}
+  build: !reset null
   restart: unless-stopped
   environment:
     DATABASE_URL: postgresql+psycopg://airsight:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}@db:5432/airsight
@@ -18,8 +24,7 @@ x-prod-backend: &prod-backend
 
 services:
   web:
-    build:
-      context: ./web
+    image: ghcr.io/imhammad/airsight-web:${AIRSIGHT_IMAGE_TAG:?run through scripts/deploy.sh or the prod command}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
