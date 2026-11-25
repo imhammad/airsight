@@ -6,6 +6,20 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-26: v0.8.0 release deploy timed out pulling an image
+
+- **Symptom:** the tag push built both images, but "Deploy to production" failed. The deploy log
+  on the Mac showed `failed to resolve reference "ghcr.io/imhammad/airsight-web:sha-7c59941..."`
+  with `context deadline exceeded`, then `v0.8.0 is not healthy; going back to main`.
+- **Cause:** the Mac's request to GHCR for the web image timed out. The image existed: the
+  rollback pulled from the same registry a minute later without trouble. It was a network blip,
+  and one failed pull was enough to fail the whole release.
+- **Fix:** the rollback kept the site up on the previous version. Re-ran the deploy with
+  `gh workflow run deploy.yml --ref v0.8.0`, which went green. `deploy.sh` now retries the
+  image pull three times, 20 seconds apart, before it gives up.
+- **Lesson:** anything that crosses the network during a deploy needs a retry. The rollback
+  worked exactly as designed, which is why a failed deploy cost nothing.
+
 ### 2026-11-24: First SSH deploy setup on the Mac (#166)
 
 - **Symptom:** three snags while setting up deploys over SSH. In zsh, a check loop printed

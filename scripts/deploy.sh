@@ -93,8 +93,15 @@ release() {
   export AIRSIGHT_IMAGE_TAG="sha-$sha"
 
   local compose=(docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod)
-  # Only our own images; the database and tool images stay on what is already there
-  "${compose[@]}" pull --quiet api worker beat exporter web || return 1
+  # Only our own images; the database and tool images stay on what is already there.
+  # A slow answer from GHCR fails the pull, so try three times before giving up.
+  local try
+  for try in 1 2 3; do
+    "${compose[@]}" pull --quiet api worker beat exporter web && break
+    [[ "$try" -lt 3 ]] || return 1
+    echo "image pull failed (try $try of 3); trying again in 20 seconds"
+    sleep 20
+  done
   # Migrations only add, so the version still running keeps working while they apply
   "${compose[@]}" run --rm api python -c \
     "from airsight.core.config import get_settings; from airsight.core.db import upgrade_database; upgrade_database(get_settings().database_url)" ||
