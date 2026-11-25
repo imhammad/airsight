@@ -197,3 +197,69 @@ is expected; three for a week is a pattern.
 **Fix:** the same retrain as [CorrectionWorseThanRaw](#correctionworsethanraw). If the same
 stations keep losing after a retrain, the cause is probably local (a sensor problem, a site
 change). Check those sensors in the data quality report before training again.
+
+## Backups
+
+Production backs itself up (issue #167). The `backup` service in `docker-compose.prod.yml`
+checks every 10 minutes and makes a new `pg_dump` once the newest one is 24 hours old, so a Mac
+that slept through the night backs up soon after it wakes. Each dump is checked with
+`pg_restore --list` before it counts. The dumps go to `BACKUP_DIR` from `.env.prod`, a folder
+in iCloud Drive, so they leave the Mac. The newest 14 are kept.
+
+**Check:** the service turns unhealthy when the newest backup is over 26 hours old.
+
+~~~bash
+prod ps backup
+prod logs --tail 20 backup
+~~~
+
+The `pg_dump: warning: there are circular foreign-key constraints` lines in the log come from
+TimescaleDB's own catalog tables and are expected. A full dump restores them correctly.
+
+**Prove a backup works** (do this after any change to the database or the backup, and once a
+month): restore the newest one into a separate database and compare row counts with live.
+
+~~~bash
+prod exec backup restore.sh
+prod exec backup dropdb airsight_restore_check
+~~~
+
+It ends with `restore check passed`. Live may be a few rows ahead, because ingestion kept
+running after the dump.
+
+## Restore the database
+
+For when production data is lost or broken. Everything written after the backup you restore is
+lost; the live ingestion job then fills in the recent hours it can still fetch.
+
+1. Stop everything that writes, so nothing changes under the restore (the site goes down):
+
+   ~~~bash
+   prod stop web api worker beat exporter
+   ~~~
+
+2. Restore the newest backup into a new database, `airsight_restored` (name a file as the
+   last argument to use an older one). The live column shows `-` if the old database is gone.
+
+   ~~~bash
+   prod exec -e RESTORE_DB=airsight_restored backup restore.sh
+   ~~~
+
+3. Swap it in, keeping the broken one until you're sure:
+
+   ~~~bash
+   prod exec backup psql -d postgres -c "ALTER DATABASE airsight RENAME TO airsight_broken" -c "ALTER DATABASE airsight_restored RENAME TO airsight"
+   ~~~
+
+4. Start everything again and check the site:
+
+   ~~~bash
+   prod up -d --wait
+   curl -s https://airsight.tailbcc5c4.ts.net/v1/health; echo
+   ~~~
+
+5. Once the site looks right, drop the old copy:
+   `prod exec backup dropdb airsight_broken`.
+
+If the whole Docker volume was lost, `prod up -d --wait db` first creates a new, empty
+`airsight` database; then follow the same steps.

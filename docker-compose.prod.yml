@@ -132,3 +132,37 @@ services:
       resources:
         limits:
           memory: 512m
+
+  # Nightly database backups into iCloud Drive, so a lost or broken Mac doesn't lose the data
+  # (issue #167). Same image as the database, so pg_dump always matches the server. The script
+  # and the restore check are in infra/backup/; how to restore is in docs/RUNBOOK.md.
+  backup:
+    image: timescale/timescaledb-ha:pg17
+    restart: unless-stopped
+    entrypoint: ["/opt/backup/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: airsight
+      PGDATABASE: airsight
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+      # The image's own PATH, plus the scripts, so "prod exec backup restore.sh" works
+      PATH: /opt/backup:/usr/lib/postgresql/17/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    volumes:
+      - ./infra/backup:/opt/backup:ro
+      - ${BACKUP_DIR:?set BACKUP_DIR in .env.prod}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    # Healthy while the newest backup is under 26 hours old (one day plus time to catch up)
+    healthcheck:
+      test: ["CMD-SHELL", "find /backups -maxdepth 1 -name 'airsight-*.dump' -mmin -1560 | grep -q ."]
+      interval: 5m
+      timeout: 10s
+      start_period: 10m
+      start_interval: 15s
+      retries: 1
+    deploy:
+      resources:
+        limits:
+          memory: 256m
