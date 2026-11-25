@@ -110,6 +110,16 @@ first check, on 2026-11-21, found all six inputs had drifted: November is colder
 cleaner than the training months. Yet on 14 November days the model still tied one retrained
 with newer data, which is why drift is a reason to look and not, by itself, to retrain.
 
+## Production (v0.8.0)
+
+AirSight is live at **<https://airsight.tailbcc5c4.ts.net>**, served from a Mac through
+Tailscale Funnel at no cost ([ADR 0014](docs/adr/0014-production-hosting.md)). Caddy is the only
+door in: it serves the web app and the API, and keeps the metrics and the internal tools
+private. A release tag builds multi-arch images, and GitHub Actions deploys that exact commit
+over the tailnet, checks its health and rolls back by itself if it fails. The database is backed
+up daily to iCloud Drive, and a restore check proves the backups work. How to set it up and run
+it: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Quickstart
 
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
@@ -130,7 +140,8 @@ Stop everything with `docker compose down`.
 ```
 backend/     Python package `airsight`: API, workers, ingestion, ML (uv, FastAPI)
 web/         Frontend (Vite, React, TypeScript)
-infra/       Prometheus, Alertmanager and Grafana config, dashboards as JSON
+infra/       Prometheus, Alertmanager, Grafana, Caddy and backup config, dashboards as JSON
+scripts/     The production deploy script
 notebooks/   Exploration scripts, never imported by the services
 docs/        Architecture decisions (ADRs) and the engineering log
 ```
@@ -146,6 +157,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.5.0 | Web app: map, location detail, accuracy page | ✅ |
 | v0.6.0 | 24-hour forecast with uncertainty | ✅ |
 | v0.7.0 | Observability and live model monitoring | ✅ |
+| v0.8.0 | Deployment: production, automatic deploys, backups | ⏳ |
 | v1.0.0 | Public launch | ⏳ |
 
 ## Documentation
@@ -155,7 +167,8 @@ docs/        Architecture decisions (ADRs) and the engineering log
 - [Model card: correction](docs/model-cards/airsight-correction-v1.md): how the correction model was tested, and its limits
 - [Model card: forecast](docs/model-cards/airsight-forecast-v1.md): how the 24-hour forecast was tested, and its limits
 - [API guide](docs/API.md): endpoints, fields, errors, caching, rate limits and performance
-- [Runbook](docs/RUNBOOK.md): what to do when each alert fires
+- [Runbook](docs/RUNBOOK.md): what to do when each alert fires, and how to restore the database
+- [Deployment guide](docs/DEPLOYMENT.md): how production runs, how to set it up from scratch, and how to operate it
 - [Engineering log](docs/engineering-log.md): every problem hit and how it was solved
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
