@@ -7,7 +7,7 @@
 near reference-monitor accuracy and forecasts the next 24 hours of PM2.5 for any street, with a
 public page that shows how accurate it is.
 
-> **Status:** early development, `v0.7.0` (observability). Follow progress on the
+> **Status:** early development, `v0.8.0` (deployment). Follow progress on the
 > [roadmap board](https://github.com/users/imhammad/projects/1).
 
 ## Why
@@ -120,6 +120,10 @@ over the tailnet, checks its health and rolls back by itself if it fails. The da
 up daily to iCloud Drive, and a restore check proves the backups work. How to set it up and run
 it: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
+Because it runs on a home server, the site is up only while that Mac is awake and online. An
+outside monitor checks the health page every 5 minutes and shows the real record on a public
+[status page](https://stats.uptimerobot.com/mJiJYV9Elv).
+
 ## Quickstart
 
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
@@ -157,7 +161,7 @@ docs/        Architecture decisions (ADRs) and the engineering log
 | v0.5.0 | Web app: map, location detail, accuracy page | ✅ |
 | v0.6.0 | 24-hour forecast with uncertainty | ✅ |
 | v0.7.0 | Observability and live model monitoring | ✅ |
-| v0.8.0 | Deployment: production, automatic deploys, backups | ⏳ |
+| v0.8.0 | Deployment: production, automatic deploys, backups | ✅ |
 | v1.0.0 | Public launch | ⏳ |
 
 ## Documentation
