@@ -6,6 +6,21 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-24: First SSH deploy setup on the Mac (#166)
+
+- **Symptom:** three snags while setting up deploys over SSH. In zsh, a check loop printed
+  `zsh: bad substitution`. `sudo sshd -T` exited with `sshd: no hostkeys available -- exiting`.
+  After the first deploy, `prod ps` still looked for `.env.prod` in the development folder.
+- **Cause:** in zsh, `$i:s...` is a modifier (`:s` substitutes), so `"$i:sha-..."` is not
+  `$i` followed by text. macOS creates the SSH host keys on the first incoming connection, and
+  nobody had connected yet. `source ~/.zshrc` doesn't remove an alias the open shell already
+  has, so the old `prod` alias kept running instead of the new function.
+- **Fix:** wrote `${i}:sha-...`. Ran `sudo ssh-keygen -A` to create the host keys. Opened a new
+  terminal.
+- **Lesson:** brace every variable that is followed by a colon in zsh. Check that host keys exist
+  before relying on sshd. When replacing an alias with a function, start a fresh shell (or
+  `unalias` first).
+
 ### 2026-11-21: Evidently can't be imported with pandas 3
 
 - **Symptom:** after `uv add evidently` (0.7.23, the newest release), `import evidently` failed
