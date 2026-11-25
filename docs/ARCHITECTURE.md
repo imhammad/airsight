@@ -130,6 +130,13 @@ sequenceDiagram
 - **Planned endpoints:** `/v1/health`, `/v1/sensors`, `/v1/sensors/{id}/readings`,
   `/v1/sensors/{id}/forecast`, `/v1/accuracy`.
 
+## In production
+
+Production runs the same Compose stack on a Mac, with `docker-compose.prod.yml` on top: Caddy in
+front on `127.0.0.1:8080`, Tailscale Funnel for the public HTTPS address, images built by CI,
+deploys over the tailnet on each release tag, and a daily backup service
+([ADR 0014](adr/0014-production-hosting.md), [deployment guide](DEPLOYMENT.md)).
+
 ## Database schema draft
 
 ```sql
