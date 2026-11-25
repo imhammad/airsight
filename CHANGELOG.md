@@ -6,6 +6,42 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+## 0.8.0 - 2026-11-25
+
+Deployment. AirSight is live at https://airsight.tailbcc5c4.ts.net, served from a Mac through
+Tailscale Funnel at no cost, with automatic deploys, daily backups and a public status page
+(https://stats.uptimerobot.com/mJiJYV9Elv).
+
+### Added
+
+- ADR 0014: production runs on a Mac behind Tailscale Funnel, after the free cloud options fell
+  through (#169).
+- A production stack, `docker-compose.prod.yml`: its own Compose project and volumes, restart
+  policies, memory limits and secrets from `.env.prod`. Caddy is the only door in: it serves the
+  web app and the API on `127.0.0.1:8080`, adds security headers, never serves `/metrics`, and
+  passes each visitor's real address to the API's rate limit (#170).
+- Automatic deploys: every push to `main` builds multi-arch images to GHCR; a release tag deploys
+  that exact commit over the tailnet (a `tag:ci` runner allowed only the Mac's SSH port, and a
+  key that can only run `scripts/deploy.sh`), migrates, checks the health page and rolls back on
+  failure (#171).
+- Daily database backups to iCloud Drive, each checked with `pg_restore --list`, and a restore
+  check that proves a backup by restoring it next to live. The runbook has a rehearsed
+  procedure for restoring the database (#172).
+- `docs/DEPLOYMENT.md`: how production works, how to set it up from scratch, and how to operate
+  it (#173).
+- An uptime monitor on the health page every 5 minutes, with a public status page.
+
+### Changed
+
+- The web image builds its static files on the build machine's own CPU, so multi-arch builds stay
+  fast (#171).
+- shellcheck runs in pre-commit (#171).
+
+### Known limits
+
+- The site is up only while the Mac is awake and online.
+- Backups cover the database, not MLflow's model store.
+
 ## 0.7.0 - 2026-11-21
 
 Observability and live model monitoring. Most of it shipped early in 0.6.0 (see "Observability"
