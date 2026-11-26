@@ -115,6 +115,17 @@ services:
 
   alertmanager:
     restart: unless-stopped
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN in .env.prod}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?set TELEGRAM_CHAT_ID in .env.prod}
+    # Alertmanager can't read environment variables in its config, so fill the placeholders in
+    # alertmanager.prod.yml into a copy in /tmp, then start it on that copy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        sed -e "s|telegram-bot-token|$$TELEGRAM_BOT_TOKEN|" -e "s|chat_id: 0$$|chat_id: $$TELEGRAM_CHAT_ID|"
+        /etc/alertmanager/alertmanager.prod.yml > /tmp/alertmanager.yml &&
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml --storage.path=/alertmanager
     ports: !override
       - "127.0.0.1:9094:9093"
     deploy:

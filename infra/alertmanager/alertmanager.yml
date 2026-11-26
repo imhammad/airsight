@@ -1,5 +1,5 @@
-# Until we deploy, firing alerts only show on Alertmanager's page (localhost:9093) and in
-# Grafana. Phase 10 adds a real receiver (ADR 0013).
+# Development: firing alerts only show on Alertmanager's page (localhost:9093) and in Grafana.
+# Production uses alertmanager.prod.yml, which sends them to Telegram.
 route:
   receiver: nobody
   group_by: [alertname]

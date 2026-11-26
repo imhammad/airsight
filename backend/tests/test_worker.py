@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Iterator
 
+import httpx2
 import pytest
 from celery.exceptions import Retry
 from celery.schedules import crontab
@@ -8,6 +9,7 @@ from celery.signals import setup_logging, task_postrun, task_prerun
 
 from airsight.core.logging import HANDLER_NAME, JsonFormatter, current_task
 from airsight.ingestion import live
+from airsight.ingestion.airnow import AirNowError, AirNowUnavailableError
 from airsight.ingestion.live import LiveReport
 from airsight.ml import forecast_batch
 from airsight.worker import runs, tasks
@@ -116,3 +118,76 @@ def test_a_retried_attempt_is_recorded_with_its_reason() -> None:
     assert runs.error_name(Retry(exc=tasks.NoReadingsYetError())) == "NoReadingsYetError"
     assert runs.error_name(Retry()) == "Retry"
     assert runs.error_name(RuntimeError("no weather")) == "RuntimeError"
+
+
+class FlakyLive:
+    """Stands in for live ingestion: raises the given errors in turn, then reports success."""
+
+    def __init__(self, *errors: Exception) -> None:
+        self.errors = list(errors)
+        self.calls = 0
+
+    def __call__(self) -> LiveReport:
+        self.calls += 1
+        if self.errors:
+            raise self.errors.pop(0)
+        return LiveReport(reference_rows=60, lowcost_rows=40, weather_rows=72, points_spent=242)
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_live_ingestion_tries_again_after_a_network_drop(monkeypatch: pytest.MonkeyPatch) -> None:
+    flaky = FlakyLive(
+        AirNowUnavailableError("AirNow request failed: ConnectError"),
+        httpx2.ConnectError("[Errno -2] Name or service not known"),
+    )
+    monkeypatch.setattr(live, "run_with_real_clients", flaky)
+
+    result = tasks.ingest_live.apply()
+
+    assert result.get()["lowcost_rows"] == 40
+    assert flaky.calls == 3
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_live_ingestion_gives_up_after_50_minutes(monkeypatch: pytest.MonkeyPatch) -> None:
+    flaky = FlakyLive(*[AirNowUnavailableError("down")] * 10)
+    monkeypatch.setattr(live, "run_with_real_clients", flaky)
+
+    result = tasks.ingest_live.apply()
+
+    assert result.failed()
+    assert flaky.calls == 1 + tasks.LIVE_RETRIES
+    assert tasks.LIVE_RETRIES * tasks.LIVE_RETRY_SECONDS == 50 * 60
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_live_ingestion_does_not_retry_a_rejected_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A bad key fails the same way every time, so retrying would only spend points
+    flaky = FlakyLive(AirNowError("AirNow returned HTTP 401"))
+    monkeypatch.setattr(live, "run_with_real_clients", flaky)
+
+    result = tasks.ingest_live.apply()
+
+    assert result.failed()
+    assert flaky.calls == 1
+
+
+@pytest.mark.usefixtures("no_run_records")
+def test_the_forecast_tries_again_when_the_weather_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def forecast(engine: object) -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise httpx2.ConnectError("[Errno -2] Name or service not known")
+        return 720
+
+    monkeypatch.setattr(forecast_batch, "forecast_latest", forecast)
+
+    result = tasks.issue_forecast.apply()
+
+    assert result.get() == 720
+    assert calls == 2

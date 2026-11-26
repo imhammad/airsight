@@ -19,6 +19,10 @@ class AirNowError(Exception):
     """A failed AirNow request. The message never contains the API key."""
 
 
+class AirNowUnavailableError(AirNowError):
+    """AirNow could not be reached at all (no network, DNS, timeout), so trying later can work."""
+
+
 @dataclass(frozen=True)
 class ReferenceReading:
     station_id: str  # the monitor's full AQS code, stable across requests
@@ -66,6 +70,8 @@ class AirNowClient:
         except httpx2.HTTPStatusError as error:
             # The original error's message includes the full URL, key included
             raise AirNowError(f"AirNow returned HTTP {error.response.status_code}") from None
+        except httpx2.TransportError as error:
+            raise AirNowUnavailableError(f"AirNow request failed: {type(error).__name__}") from None
         except httpx2.HTTPError as error:
             raise AirNowError(f"AirNow request failed: {type(error).__name__}") from None
 
