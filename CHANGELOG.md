@@ -6,6 +6,12 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+### Changed
+
+- The README is redesigned: figures drawn from the project's own data in the web app's palette
+  and fonts, in light and dark, a live error badge, a where-to-start guide, four problems worth
+  reading about and a decisions table (#176).
+
 ## 0.8.0 - 2026-11-25
 
 Deployment. AirSight is live at https://airsight.tailbcc5c4.ts.net, served from a Mac through
