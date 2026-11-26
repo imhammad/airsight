@@ -1,3 +1,4 @@
+import functools
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -7,7 +8,8 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
-from airsight.ingestion.airnow import AirNowClient, AirNowError
+from airsight.ingestion import airnow, http_client
+from airsight.ingestion.airnow import AirNowClient, AirNowError, AirNowUnavailableError
 from airsight.ingestion.regions import BAY_AREA
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -74,6 +76,27 @@ def test_errors_never_reveal_the_key() -> None:
     assert "secret-test-key" not in str(caught.value)
     assert caught.value.__cause__ is None
     assert caught.value.__suppress_context__
+
+
+def test_an_unreachable_airnow_is_marked_as_worth_retrying(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        raise httpx2.ConnectError("[Errno -2] Name or service not known")
+
+    no_wait = functools.partial(http_client.get_json, sleep=lambda _: None)
+    monkeypatch.setattr(airnow, "get_json", no_wait)
+    client = AirNowClient(httpx2.Client(transport=httpx2.MockTransport(handler)), KEY)
+
+    with pytest.raises(AirNowUnavailableError):
+        client.hourly_pm25(BAY_AREA, START, END)
+
+
+def test_a_rejected_request_is_not_marked_as_worth_retrying() -> None:
+    client, _ = client_serving(401, {"error": "invalid key"})
+
+    with pytest.raises(AirNowError) as caught:
+        client.hourly_pm25(BAY_AREA, START, END)
+
+    assert not isinstance(caught.value, AirNowUnavailableError)
 
 
 def test_parses_recorded_response() -> None:

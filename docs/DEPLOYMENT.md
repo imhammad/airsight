@@ -267,6 +267,47 @@ An outside check that tells anyone whether the site is up: a free
 [UptimeRobot](https://uptimerobot.com) HTTP(S) monitor on
 `https://airsight.tailbcc5c4.ts.net/v1/health` every 5 minutes, with a public status page.
 
+### 13. Alerts on your phone
+
+Alertmanager sends every alert, and its all-clear, to Telegram through a bot of your own.
+
+1. In Telegram, open a chat with **@BotFather**, send `/newbot`, name it `AirSight alerts`, and
+   give it a username ending in `bot`. BotFather replies with the bot's token. Treat it like a
+   password.
+2. Open your bot's chat (search for its username), press **Start** and send it any message. A
+   bot can only write to people who wrote to it first.
+3. Run this line on its own and paste the whole token at the prompt, the numbers before the
+   colon included. `read -rs` keeps it off the screen and out of your shell history. Run it
+   alone: pasted together with the next block, `read` would take the next line as the token.
+
+   ~~~bash
+   read -rs "token?Bot token: "; echo
+   ~~~
+
+4. Check the token, find your chat id and save both:
+
+   ~~~bash
+   curl -s "https://api.telegram.org/bot${token}/getMe" | python3 -c 'import json,sys; r=json.load(sys.stdin); print("token ok:", r["ok"], r.get("result", {}).get("username", r.get("description")))'
+   chat="$(curl -s "https://api.telegram.org/bot${token}/getUpdates" | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"][-1]["message"]["chat"]["id"])')"
+   echo "chat id: ${chat}"
+   env_prod=../airsight-prod/.env.prod
+   updated="$(grep -v '^TELEGRAM_' "$env_prod"; printf 'TELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\n' "$token" "$chat")"
+   printf '%s\n' "$updated" > "$env_prod"
+   unset token updated
+   grep -c '^TELEGRAM_[A-Z_]*=..' ../airsight-prod/.env.prod
+   ~~~
+
+   It prints `token ok: True` with the bot's username, the chat id, then `2`. `token ok: False`
+   means the token was copied incompletely. An `IndexError` means the bot has no message from
+   you yet: send it one and run this block again (redo step 3 first, since the block clears the
+   token). Set both before the next deploy: every `prod` command refuses to run without them.
+5. After a deploy, send a test alert. It arrives within a minute, and an all-clear about five
+   minutes later:
+
+   ~~~bash
+   prod exec alertmanager amtool alert add AirSightTest severity=info --annotation=summary="Test alert from the deployment guide" --alertmanager.url=http://localhost:9093
+   ~~~
+
 ## Operating production
 
 | Task | Command |

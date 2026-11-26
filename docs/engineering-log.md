@@ -6,6 +6,23 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-26: One network drop left every reading 6 hours old, and no alert came
+
+- **Symptom:** a README screenshot of the live map said "No sensors are reporting right now."
+  The 03:15 UTC live run had failed with `AirNowError('AirNow request failed: ConnectError')`
+  and the forecast with `Name or service not known`. The 06:15 run worked again by itself.
+- **Cause:** the Mac lost its internet connection for a while, so DNS failed inside Docker.
+  The HTTP client's own retries wait seconds, not minutes, and a failed live run waited for its
+  next slot 3 hours later. Two missed hours of data made every reading more than 6 hours old,
+  which the site treats as stale. No one was told because Alertmanager still sent every alert
+  to a receiver named `nobody`: the real receiver promised for Phase 10 was never added.
+- **Fix:** live ingestion retries network errors every 10 minutes for 50 minutes, and the
+  forecast every 15 minutes for an hour. A rejected request (a bad key) still fails at once,
+  since retrying it would only spend points. Production alerts now go to Telegram.
+- **Lesson:** a laptop server will drop off the network, so every scheduled network job needs
+  a retry measured in minutes. And a TODO in a config file is not a plan: check it off in the
+  phase that promised it.
+
 ### 2026-11-26: v0.8.0 release deploy timed out pulling an image
 
 - **Symptom:** the tag push built both images, but "Deploy to production" failed. The deploy log

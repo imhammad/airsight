@@ -6,11 +6,21 @@ Semantic Versioning (https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- Production alerts reach a phone through Telegram; until now they went to no receiver at all.
+
 ### Changed
 
 - The README is redesigned: figures drawn from the project's own data in the web app's palette
   and fonts, in light and dark, a live error badge, a where-to-start guide, four problems worth
   reading about and a decisions table (#176).
+
+### Fixed
+
+- Live ingestion and the forecast try again every 10 to 15 minutes after a network error,
+  instead of waiting for the next run 3 hours later. One network drop on the Mac had left every
+  reading more than 6 hours old.
 
 ## 0.8.0 - 2026-11-25
 

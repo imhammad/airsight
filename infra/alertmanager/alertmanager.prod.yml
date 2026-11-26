@@ -1,0 +1,18 @@
+# Production alert routing (ADR 0013): every alert goes to Hammad's Telegram, and a message
+# follows when it resolves. The bot token and chat id stay in .env.prod on the Mac. The
+# alertmanager service in docker-compose.prod.yml writes them over the two placeholders below
+# into a copy in /tmp at start-up, so this file holds no secret and stays a valid config.
+route:
+  receiver: telegram
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: telegram-bot-token
+        chat_id: 0
+        parse_mode: HTML
+        send_resolved: true
