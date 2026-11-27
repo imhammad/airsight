@@ -1,7 +1,8 @@
 # AirSight architecture
 
-- **Status:** Draft for v0.2.0. Alembic migrations become the source of truth for the schema in Phase 4.
-- **Decisions behind this document:** ADR 0001 (training region) to ADR 0005 (batch predictions), in `docs/adr/`.
+- **Status:** Current as of v1.0.0. The migrations in `backend/src/airsight/migrations` are the
+  source of truth for the schema.
+- **Decisions behind this document:** the 14 ADRs in [`docs/adr/`](adr/).
 
 ## What the system does
 
@@ -45,7 +46,7 @@ flowchart LR
 | Component | Role | Code |
 |---|---|---|
 | Celery beat | The only scheduler. Exactly one instance, in its own container. | `airsight.worker` |
-| Celery workers | Ingestion, correction, forecast and daily input drift tasks. | `airsight.worker`, `airsight.ingestion`, `airsight.ml` |
+| Celery workers | Live ingestion, correction and the raw fallback choice, forecasts, and the daily quality, drift and day-ahead weather jobs. | `airsight.worker`, `airsight.ingestion`, `airsight.ml` |
 | PostgreSQL | All data: time series, locations, predictions, run history. | Alembic migrations |
 | Redis | Celery broker (database 0) and API cache (database 1). | |
 | MLflow | Experiment tracking and the model registry. | |
@@ -54,7 +55,7 @@ flowchart LR
 | Exporter | Data freshness, job runs, queue length and live accuracy for Prometheus, read from the database and Redis on each scrape ([ADR 0013](adr/0013-observability.md)). | `airsight.observability` |
 | Web app | Map, sensor pages and the accuracy page. | `web/` |
 | Prometheus | Scrapes the API and the exporter every 15 seconds, keeps 30 days, evaluates alert rules. | `infra/prometheus` |
-| Alertmanager | Groups firing alerts. No outside receiver until we deploy (Phase 10). | `infra/alertmanager` |
+| Alertmanager | Groups firing alerts. In production it sends each one, and its all-clear, to a Telegram bot ([deployment guide](DEPLOYMENT.md#13-alerts-on-your-phone)); locally it sends nowhere. | `infra/alertmanager` |
 | Grafana | Pipeline, API and Model dashboards, provisioned from files. | `infra/grafana` |
 
 Monitoring follows [ADR 0013](adr/0013-observability.md). Locally, Grafana is at
@@ -68,6 +69,18 @@ to do when one fires is in the [runbook](RUNBOOK.md).
 
 ## The regular cycle
 
+Celery beat runs every job on a fixed UTC schedule (`worker/celery_app.py`). Every 3 hours three
+jobs run 15 minutes apart, each using what the one before it stored.
+
+| Job | When (UTC) | What it does |
+|---|---|---|
+| `ingest_live` | every 3 hours at :15 | Fetches PurpleAir hourly averages, AirNow monitor readings and Open-Meteo weather since the newest stored hour |
+| `correct_readings` | every 3 hours at :30 | Recomputes the last 48 hours of corrections with the champion, then picks corrected or raw for each station ([ADR 0010](adr/0010-raw-fallback.md)) |
+| `issue_forecast` | every 3 hours at :45 | Forecasts the next 24 hours for every served sensor ([ADR 0012](adr/0012-forecast-design.md)) |
+| `check_quality` | daily at 01:45 | Excludes sensors with broken or disagreeing channels |
+| `check_drift` | daily at 02:15 | Compares the last 7 days of model inputs with the champion's training data |
+| `load_day_ahead_weather` | daily at 04:45 | Stores Open-Meteo's day-ahead weather forecasts, which the forecast model trains on |
+
 ```mermaid
 sequenceDiagram
     participant Beat as Celery beat
@@ -75,35 +88,33 @@ sequenceDiagram
     participant Src as External APIs
     participant DB as Database
     participant API as FastAPI
-    Beat->>W: ingest_purpleair (every 10 min)
-    W->>Src: request latest sensor readings
-    Src-->>W: readings
-    W->>DB: upsert lowcost_readings
+    Beat->>W: ingest_live (:15)
+    W->>Src: PurpleAir, AirNow and Open-Meteo since the newest stored hour
+    Src-->>W: hourly readings and weather
+    W->>DB: upsert lowcost_readings, reference_readings and weather
+    Beat->>W: correct_readings (:30)
     W->>DB: upsert corrected_readings with model_version
-    Beat->>W: ingest_reference and ingest_weather (hourly)
-    W->>Src: request monitor and weather data
-    Src-->>W: data
-    W->>DB: upsert reference_readings and weather
-    Beat->>W: issue_forecast (every 3 hours at :45, after correction)
+    W->>DB: replace serving_sources (corrected or raw per station)
+    Beat->>W: issue_forecast (:45)
     W->>Src: request the upcoming weather forecast
-    W->>DB: read recent hourly features
     W->>DB: upsert forecasts for the next 24 hours
-    Beat->>W: check_drift (daily at 02:15)
-    W->>DB: compare the last 7 days of inputs with the training period
-    W->>DB: insert input_drift scores, log the report to MLflow
-    API->>DB: read latest results with as_of
+    API->>DB: read the latest results with as_of
 ```
+
+A network error makes `ingest_live` retry every 10 minutes for up to 50 minutes, and
+`issue_forecast` every 15 minutes for an hour, so a short outage on the server costs minutes
+instead of a whole 3-hour slot. A rejected request (a bad key, a malformed query) fails at once.
 
 ## Data rules
 
 - **Time and units:** every timestamp is UTC (`timestamptz`). PM2.5 is always in µg/m³.
-- **Time grain:** raw readings are stored as received (about every 10 minutes). Training, evaluation
-  and forecasts use hourly averages, because official monitors report hourly. A TimescaleDB
-  continuous aggregate (`lowcost_hourly`) keeps those averages up to date.
+- **Time grain:** everything is hourly. Official monitors report hourly, so PurpleAir is asked for
+  hourly averages and weather is stored per hour.
 - **Idempotency:** Celery may run a task twice (ADR 0004). Every write is an upsert on a natural key
   (`INSERT ... ON CONFLICT DO UPDATE`), so a rerun changes nothing.
-- **Catching up:** each ingestion task starts from the last successful timestamp for its source, so a
-  missed run is filled in by the next one.
+- **Catching up:** live ingestion starts from the newest stored hour of each source, so a missed run
+  is filled in by the next one: up to 3 days back for AirNow, and up to 24 hours per sensor for
+  PurpleAir, so one run can't drain the points budget ([ADR 0006](adr/0006-purpleair-points-budget.md)).
 - **Run history:** every task run writes a row to `ingestion_runs` (status, row count, error).
 - **Backfills:** historical downloads are split into one task per source per day, so a failure
   retries one day, not the whole history.
@@ -112,12 +123,14 @@ sequenceDiagram
 
 | Failure | What the system does | What users see |
 |---|---|---|
-| PurpleAir down or rate limited | Retries with exponential backoff, marks the run failed, catches up on the next run. | The last values, with their `as_of` time. |
+| A source unreachable (network or provider down) | The HTTP client retries with backoff, then the whole run retries every 10 minutes for 50 minutes. After that the run fails, JobFailing and DataStale alert, and the next run catches up. | The last values, with their `as_of` time. |
+| The correction does worse than raw at a station | The sensors paired with that monitor show raw readings until the correction wins again ([ADR 0010](adr/0010-raw-fallback.md)). | Raw readings, labelled raw. |
 | AirNow data late | Corrections don't need it. Accuracy is computed when the data arrives. | The accuracy page updates later. |
 | No working production model | Prediction tasks fail and alert. Ingestion carries on. Stored predictions stay. | The last predictions, with `as_of`. |
 | Worker crashes mid-task | The task is delivered again (late acknowledgement). Upserts make the rerun safe. | Nothing. |
 | Redis down | No new tasks run. The API skips the cache and reads the database. | Slower responses, older data. |
 | Database down | Workers retry. The API health check fails and returns 503. | An error page. |
+| The server (the Mac) asleep or offline | Nothing runs. On wake every job catches up, and the forecast retries for an hour until fresh readings exist. UptimeRobot reports the downtime. | The site is unreachable. |
 
 ## API rules
 
@@ -126,123 +139,38 @@ sequenceDiagram
 - **Freshness:** every response that contains data includes `as_of`, and predictions include
   `model_version`.
 - **Caching:** cache-aside in Redis, keyed by path and query parameters. Time-to-live values follow
-  how often the data changes: latest readings 60 seconds, forecasts 5 minutes, accuracy 1 hour.
-- **Planned endpoints:** `/v1/health`, `/v1/sensors`, `/v1/sensors/{id}/readings`,
-  `/v1/sensors/{id}/forecast`, `/v1/accuracy`.
+  how often the data changes: latest readings and forecasts 5 minutes, accuracy 15 minutes, past
+  history and the model 1 hour ([API guide](API.md#caching)).
+- **Endpoints:** listed in the [API guide](API.md#endpoints).
 
 ## In production
 
 Production runs the same Compose stack on a Mac, with `docker-compose.prod.yml` on top: Caddy in
 front on `127.0.0.1:8080`, Tailscale Funnel for the public HTTPS address, images built by CI,
-deploys over the tailnet on each release tag, and a daily backup service
+deploys over the tailnet on each release tag, a daily backup service, and alerts to Telegram
 ([ADR 0014](adr/0014-production-hosting.md), [deployment guide](DEPLOYMENT.md)).
 
-## Database schema draft
+## Database schema
 
-```sql
--- Every station, low-cost or official. location uses PostGIS (WGS 84).
-CREATE TABLE sensors (
-    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    source          text NOT NULL,              -- 'purpleair' | 'airnow'
-    source_id       text NOT NULL,              -- the id in the source system
-    kind            text NOT NULL,              -- 'lowcost' | 'reference'
-    name            text,
-    location        geography(Point, 4326) NOT NULL,
-    weather_cell_id text,                       -- weather grid cell (lat and lon rounded to 0.1 degrees)
-    active          boolean NOT NULL DEFAULT true,
-    UNIQUE (source, source_id)
-);
+The migrations in `backend/src/airsight/migrations/versions` create the schema, and
+`core/tables.py` mirrors them for the application code (`tests/test_migrations.py` fails if the two
+drift apart). The six time series tables are TimescaleDB hypertables, partitioned on `time`
+(`forecasts` on `issue_time`). Every timestamp is UTC.
 
--- Hypertable. PurpleAir sensors have two laser counters (A and B).
-CREATE TABLE lowcost_readings (
-    sensor_id   bigint NOT NULL REFERENCES sensors (id),
-    time        timestamptz NOT NULL,
-    pm25_a      real,
-    pm25_b      real,
-    humidity    real,
-    temperature real,
-    PRIMARY KEY (sensor_id, time)
-);
-
--- Hypertable. Hourly official PM2.5, the ground truth.
-CREATE TABLE reference_readings (
-    sensor_id bigint NOT NULL REFERENCES sensors (id),
-    time      timestamptz NOT NULL,
-    pm25      real NOT NULL,
-    PRIMARY KEY (sensor_id, time)
-);
-
--- Hypertable. Hourly weather per grid cell, shared by nearby sensors.
-CREATE TABLE weather (
-    cell_id           text NOT NULL,
-    time              timestamptz NOT NULL,
-    temperature       real,
-    relative_humidity real,
-    wind_speed        real,
-    wind_direction    real,
-    precipitation     real,
-    PRIMARY KEY (cell_id, time)
-);
-
--- Hypertable. The same columns, as forecast 24 hours before each hour (ADR 0012). Only the
--- air quality forecast trains on it, so future weather never leaks into its inputs.
-CREATE TABLE day_ahead_weather (
-    cell_id           text NOT NULL,
-    time              timestamptz NOT NULL,
-    temperature       real,
-    relative_humidity real,
-    wind_speed        real,
-    wind_direction    real,
-    precipitation     real,
-    PRIMARY KEY (cell_id, time)
-);
-
--- Low-cost sensors within 2 km of an official monitor, refreshed with PostGIS ST_DWithin.
-CREATE TABLE sensor_pairs (
-    reference_sensor_id bigint NOT NULL REFERENCES sensors (id),
-    lowcost_sensor_id   bigint NOT NULL REFERENCES sensors (id),
-    distance_m          real NOT NULL,
-    PRIMARY KEY (reference_sensor_id, lowcost_sensor_id)
-);
-
--- Hypertable. One corrected value per reading per model version.
-CREATE TABLE corrected_readings (
-    sensor_id      bigint NOT NULL REFERENCES sensors (id),
-    time           timestamptz NOT NULL,
-    model_version  text NOT NULL,
-    pm25_corrected real NOT NULL,
-    PRIMARY KEY (sensor_id, time, model_version)
-);
-
--- Hypertable on issue_time. Every 3 hours the job forecasts the next 24 hours with a range
--- (ADR 0012). Every issue is kept, so the live forecast can be scored later; issuing the same
--- hour again replaces it.
-CREATE TABLE forecasts (
-    sensor_id          bigint NOT NULL REFERENCES sensors (id),
-    issue_time         timestamptz NOT NULL,
-    horizon            smallint NOT NULL CHECK (horizon BETWEEN 1 AND 24),
-    target_time        timestamptz NOT NULL,
-    p10                real NOT NULL,
-    p50                real NOT NULL,
-    p90                real NOT NULL,
-    outside_experience boolean NOT NULL,  -- above 35.4 µg/m³: marked, range widened
-    model_version      text NOT NULL,
-    computed_at        timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (sensor_id, issue_time, horizon),
-    CHECK (0 <= p10 AND p10 <= p50 AND p50 <= p90)
-);
-
--- One row per task run, for debugging and monitoring.
-CREATE TABLE ingestion_runs (
-    id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    task          text NOT NULL,
-    started_at    timestamptz NOT NULL,
-    finished_at   timestamptz,
-    status        text NOT NULL,                -- 'running' | 'succeeded' | 'failed'
-    rows_upserted integer,
-    error         text
-);
-```
+| Table | What it holds | Written by |
+|---|---|---|
+| `sensors` | Every PurpleAir sensor and official monitor, with its PostGIS location and weather cell | backfill, `ingest_live` |
+| `sensor_pairs` | Each low-cost sensor within 1 km of an official monitor, with the distance | backfill |
+| `lowcost_readings` | Hourly PurpleAir channels A and B, humidity and temperature, plus quality flags PostgreSQL computes | `ingest_live` |
+| `reference_readings` | Hourly official PM2.5, the ground truth | `ingest_live` |
+| `weather` | Hourly observed weather per 0.1 degree grid cell | `ingest_live` |
+| `day_ahead_weather` | The weather as forecast a day before each hour, so the forecast model never trains on the future ([ADR 0012](adr/0012-forecast-design.md)) | `load_day_ahead_weather` |
+| `sensor_health` | Each sensor's latest quality verdict and the numbers behind it | `check_quality` |
+| `corrected_readings` | One corrected PM2.5 value per sensor-hour, with the model version | `correct_readings` |
+| `serving_sources` | Corrected or raw, per sensor, with the 14-day scores that decided it ([ADR 0010](adr/0010-raw-fallback.md)) | `correct_readings` |
+| `forecasts` | Every issued 24-hour forecast with its p10 to p90 range, kept so it can be scored later | `issue_forecast` |
+| `input_drift` | The daily drift score of each model input | `check_drift` |
+| `ingestion_runs` | One row per job run: status, rows written, error | every job |
 
 Model versions are not duplicated in a table: the MLflow registry owns them, and every prediction
 row stores the version string it came from.

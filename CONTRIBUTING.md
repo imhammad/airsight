@@ -22,9 +22,13 @@ cp .env.example .env        # then add your own API keys; .env is never committe
 
 | What | Command |
 |---|---|
-| Whole stack | `docker compose up -d --build --wait` |
+| Database only, for tests | `docker compose up -d --wait db` |
+| Whole stack (not on the production Mac) | `docker compose up -d --build --wait` |
 | API with auto-reload | `cd backend && uv run uvicorn airsight.api.main:app --reload` |
 | Web dev server | `cd web && npm run dev` |
+
+On the Mac that runs production, start only the database: a whole development stack would run
+the ingestion jobs a second time and spend the PurpleAir points twice.
 
 ## Checks (the same ones CI runs)
 
@@ -49,3 +53,11 @@ pre-commit run --all-files                    # formatting, lint, types, file hy
 
 - Choosing between real options? Write an ADR in `docs/adr/` (next number, same format).
 - Hit a problem worth remembering? Add an entry to `docs/engineering-log.md`.
+
+## Releasing
+
+Follow [Semantic Versioning](https://semver.org/) and keep `CHANGELOG.md` in the
+[Keep a Changelog](https://keepachangelog.com/) format. A release PR moves the Unreleased entries
+under the new version and bumps the version in `backend/pyproject.toml`, `web/package.json`, their
+lock files and `docs/openapi.json`. After it merges, pushing the tag (`git push origin vX.Y.Z`)
+builds the images and deploys production by itself ([deployment guide](docs/DEPLOYMENT.md)).

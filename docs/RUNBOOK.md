@@ -12,7 +12,11 @@ Where to look:
 - **Prometheus** (<http://localhost:9090/alerts>): every rule, and whether it is pending or
   firing.
 
-Every command below runs in the repo root.
+Every command below runs in the repo root and uses the development stack. **In production**,
+replace `docker compose` with `prod` (the shell function from the
+[deployment guide](DEPLOYMENT.md)), and use Grafana at <http://localhost:3001>, Prometheus at
+<http://localhost:9091> and Alertmanager at <http://localhost:9094>. Production alerts arrive in
+Telegram, and resolve there with an all-clear.
 
 | Alert | Severity | Fires when |
 |---|---|---|
@@ -31,7 +35,8 @@ sources (PurpleAir, AirNow, weather, corrected readings, forecasts) arrive every
 normally at most about 4.5 hours old. Day-ahead weather loads once a day at 04:45 UTC.
 
 **Why it matters:** this is the alert we didn't have on 12 November, when AirNow's Bay Area feed
-stopped and every run still reported success.
+stopped and every run still reported success. On 26 November it fired, but Alertmanager had no
+receiver, so nobody heard it; that is why production now sends alerts to Telegram.
 
 **Check:**
 
@@ -63,6 +68,9 @@ stopped and every run still reported success.
   hour (at most 3 days back), so it catches up by itself once the provider is back. Forecasts
   issued meanwhile are flagged `monitor_offline`.
 - If the laptop was asleep, the next run catches up. The alert clears within an hour of it.
+- If the server's network dropped, live ingestion retries every 10 minutes for 50 minutes. If the
+  drop lasted longer, run live ingestion by hand (above) once the network is back, instead of
+  waiting for the next 3-hour slot.
 
 ## JobFailing
 

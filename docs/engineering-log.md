@@ -6,6 +6,19 @@ Format: symptom, cause, fix, lesson.
 
 ---
 
+### 2026-11-27: Setting up the Telegram bot failed three times
+
+- **Problem:** the step that saves the bot token and chat id printed `KeyError: 'result'` twice,
+  then `IndexError`, and wrote an empty chat id to `.env.prod`.
+- **Cause:** three separate slips. Pasted as one block, `read -rs` took the next pasted line as
+  the token. Then only the part after the colon was pasted, and the token includes the bot id
+  before it, so Telegram answered `Not Found`. Last, the bot had no message yet, so `getUpdates`
+  returned an empty list.
+- **Fix:** the guide now runs the `read` line on its own, checks the token with `getMe` before
+  anything else (it prints the bot's username), and says to press Start in the bot's chat first.
+- **Lesson:** a setup step that takes a secret should check it straight away and say what was
+  wrong, instead of failing two commands later with a stack trace.
+
 ### 2026-11-26: One network drop left every reading 6 hours old, and no alert came
 
 - **Symptom:** a README screenshot of the live map said "No sensors are reporting right now."

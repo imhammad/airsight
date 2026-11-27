@@ -305,7 +305,7 @@ Alertmanager sends every alert, and its all-clear, to Telegram through a bot of 
    minutes later:
 
    ~~~bash
-   prod exec alertmanager amtool alert add AirSightTest severity=info --annotation=summary="Test alert from the deployment guide" --alertmanager.url=http://localhost:9093
+   prod exec alertmanager amtool alert add AirSightTest severity=info --annotation='summary="Test alert from the deployment guide"' --alertmanager.url=http://localhost:9093
    ~~~
 
 ## Operating production

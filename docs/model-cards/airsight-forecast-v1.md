@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Champion since 2026-11-12; not served yet (the forecast job and API come in #112) |
+| **Status** | Champion since 2026-11-12, issued every 3 hours since 2026-11-13 (#112), on the map and sensor pages (#113) and scored live on the accuracy page (#129) |
 | **Registry** | MLflow model `airsight-forecast`, version 1, alias `@champion` |
 | **Training run** | `ff402b0cd79146c6a12dd010c9ce47cf` (experiment `forecast`) |
 | **Dataset** | `forecast-7d9714f5d39f`: 484,412 rows, 33 sensors, 10 official monitors, 2026-08-07 to 2026-11-11 |
