@@ -5,7 +5,7 @@ Every value comes from a registered model, and the API says which one. The rules
 [ADR 0008](adr/0008-public-api-design.md). The machine-readable contract is
 [openapi.json](openapi.json), and a running API shows interactive docs at `/docs`.
 
-- **Base URL (local):** `http://localhost:8000/v1`
+- **Base URL:** `https://airsight.tailbcc5c4.ts.net/v1` (production), `http://localhost:8000/v1` (local)
 - **Format:** JSON, `snake_case` fields, missing values are `null` (never left out)
 - **Access:** read-only and public, no key needed, 60 requests a minute per IP
 
